@@ -194,14 +194,15 @@ def submit_finder_probe_response(probe_id: str, payload: SubmitProbeResponseRequ
 
     cursor.execute("SELECT * FROM verification_probes WHERE id = ?", (probe_id,))
     probe = cursor.fetchone()
+    conn.close()
+
     if not probe:
-        conn.close()
         raise HTTPException(status_code=404, detail="Verification probe not found")
 
     saved_photo_url = save_base64_image(payload.photo_data)
     now_str = datetime.now().isoformat()
 
-    # Stage 4 Agentic Evaluation
+    # Stage 4 Agentic Evaluation (No open DB connection during processing)
     confidence, status, reasoning = evaluate_finder_verification_photo(
         secret_point=probe["secret_point_text"],
         target_area=probe["target_area"],
@@ -211,6 +212,9 @@ def submit_finder_probe_response(probe_id: str, payload: SubmitProbeResponseRequ
     )
 
     probe_status = "VERIFIED" if status == "VERIFIED" else "FAILED"
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
 
     cursor.execute("""
     UPDATE verification_probes 

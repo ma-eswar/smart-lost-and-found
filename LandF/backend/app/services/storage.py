@@ -1,4 +1,5 @@
 import os
+import re
 import uuid
 import base64
 from pathlib import Path
@@ -27,10 +28,13 @@ def save_base64_image(data_url: str) -> str:
         ext = ".jpg"
         if "image/png" in header:
             ext = ".png"
-        elif "image/webp" in header:
-            ext = ".webp"
+        # Clean and auto-pad base64 string
+        clean_encoded = re.sub(r'[^A-Za-z0-9+/=]', '', encoded)
+        missing_padding = len(clean_encoded) % 4
+        if missing_padding:
+            clean_encoded += "=" * (4 - missing_padding)
             
-        data = base64.b64decode(encoded)
+        data = base64.b64decode(clean_encoded)
         filename = f"{uuid.uuid4().hex}{ext}"
         destination = UPLOAD_DIR / filename
         
