@@ -1,14 +1,25 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { NavLink, Link, useNavigate } from 'react-router-dom';
+import { NavLink, Link, useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../services/api';
 import { useAuth } from './AuthContext';
 
 export default function Header() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, isLoggedIn, logout, setShowLoginModal } = useAuth();
   const [notifications, setNotifications] = useState([]);
-  const [isOpen, setIsOpen] = useState(false);
-  const dropdownRef = useRef(null);
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const notifRef = useRef(null);
+  const userMenuRef = useRef(null);
+
+  // Close mobile menu on route change
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+    setIsNotifOpen(false);
+    setIsUserMenuOpen(false);
+  }, [location.pathname]);
 
   // Get current user identifier (phone or user_id)
   const getUserIdentifier = () => {
@@ -20,7 +31,7 @@ export default function Header() {
     } catch {
       // fallback
     }
-    return '+91 98765 43210';
+    return '';
   };
 
   const loadNotifications = async () => {
@@ -40,11 +51,14 @@ export default function Header() {
     return () => clearInterval(interval);
   }, [user]);
 
-  // Close dropdown on outside click
+  // Close dropdowns on outside click
   useEffect(() => {
     function handleClickOutside(e) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
-        setIsOpen(false);
+      if (notifRef.current && !notifRef.current.contains(e.target)) {
+        setIsNotifOpen(false);
+      }
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
+        setIsUserMenuOpen(false);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
@@ -60,7 +74,7 @@ export default function Header() {
     } catch {
       // ignore
     }
-    setIsOpen(false);
+    setIsNotifOpen(false);
     if (notif.action_url) {
       navigate(notif.action_url);
     }
@@ -75,12 +89,19 @@ export default function Header() {
   return (
     <header className="app-header">
       <div className="header-container">
+        {/* Brand Logo */}
         <Link to="/" className="brand">
-          <span className="brand-badge"><i className="bi bi-shield-check"></i> SAFE RECOVER</span>
-          <span>Lost &amp; Found Portal</span>
+          <div className="brand-logo-icon">
+            <i className="bi bi-shield-check"></i>
+          </div>
+          <div className="brand-text-group">
+            <span className="brand-title">SafeRecover</span>
+            <span className="brand-subtitle">Smart Lost &amp; Found</span>
+          </div>
         </Link>
         
-        <nav className="main-nav">
+        {/* Desktop Navigation */}
+        <nav className="main-nav desktop-nav">
           <NavLink to="/" end className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
             <i className="bi bi-house"></i> Home
           </NavLink>
@@ -95,14 +116,14 @@ export default function Header() {
           </NavLink>
         </nav>
 
-        {/* Header Right Actions: Notifications + User Profile / Login */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          {/* In-App Notification Center */}
-          <div className="header-actions" ref={dropdownRef} style={{ position: 'relative' }}>
+        {/* Header Right Actions */}
+        <div className="header-right-actions">
+          {/* Notification Bell */}
+          <div className="header-actions" ref={notifRef} style={{ position: 'relative' }}>
             <button
               type="button"
               className="btn-icon notification-bell-btn"
-              onClick={() => setIsOpen(prev => !prev)}
+              onClick={() => setIsNotifOpen(prev => !prev)}
               aria-label="Notifications"
               title="Notification Center"
             >
@@ -113,7 +134,7 @@ export default function Header() {
             </button>
 
             {/* Notification Dropdown Drawer */}
-            {isOpen && (
+            {isNotifOpen && (
               <div className="notification-drawer">
                 <div className="notification-drawer-header">
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -129,7 +150,7 @@ export default function Header() {
                       type="button"
                       className="btn-text-sm"
                       onClick={markAllRead}
-                      style={{ fontSize: '0.78rem', color: 'var(--color-primary)', background: 'none', border: 'none', cursor: 'pointer' }}
+                      style={{ fontSize: '0.78rem', color: 'var(--color-primary)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}
                     >
                       Mark all read
                     </button>
@@ -177,35 +198,106 @@ export default function Header() {
             )}
           </div>
 
-          {/* User Auth Chip */}
+          {/* User Profile Pill / Sign In */}
           {isLoggedIn ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: '#f1f5f9', padding: '0.35rem 0.75rem', borderRadius: '9999px', border: '1px solid #e2e8f0' }}>
-              <i className="bi bi-person-circle" style={{ color: 'var(--color-primary)', fontSize: '1.1rem' }}></i>
-              <span style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {user.full_name || user.phone}
-              </span>
+            <div className="user-profile-menu-wrapper" ref={userMenuRef}>
               <button
                 type="button"
-                onClick={logout}
-                title="Sign Out"
-                className="btn-text-sm"
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', padding: '0.1rem 0.25rem' }}
+                className="user-profile-btn"
+                onClick={() => setIsUserMenuOpen(prev => !prev)}
+                title="Account Menu"
               >
-                <i className="bi bi-box-arrow-right"></i>
+                <div className="user-avatar-circle">
+                  <i className="bi bi-person-fill"></i>
+                </div>
+                <span className="user-name-text">
+                  {user.full_name || user.phone}
+                </span>
+                <i className={`bi ${isUserMenuOpen ? 'bi-chevron-up' : 'bi-chevron-down'}`} style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}></i>
               </button>
+
+              {/* User Menu Dropdown */}
+              {isUserMenuOpen && (
+                <div className="user-dropdown-menu">
+                  <div className="user-dropdown-header">
+                    <div style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-main)' }}>{user.full_name || 'Verified User'}</div>
+                    <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>{user.phone}</div>
+                    {user.email && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{user.email}</div>}
+                  </div>
+                  <div className="user-dropdown-divider"></div>
+                  <Link to="/status" className="user-dropdown-item" onClick={() => setIsUserMenuOpen(false)}>
+                    <i className="bi bi-speedometer2"></i> My Dashboard
+                  </Link>
+                  <Link to="/lost" className="user-dropdown-item" onClick={() => setIsUserMenuOpen(false)}>
+                    <i className="bi bi-search"></i> Report Lost Item
+                  </Link>
+                  <Link to="/found" className="user-dropdown-item" onClick={() => setIsUserMenuOpen(false)}>
+                    <i className="bi bi-box-seam"></i> Report Found Item
+                  </Link>
+                  <div className="user-dropdown-divider"></div>
+                  <button type="button" className="user-dropdown-item logout-item" onClick={() => { setIsUserMenuOpen(false); logout(); }}>
+                    <i className="bi bi-box-arrow-right"></i> Sign Out
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <button
               type="button"
-              className="btn btn-outline btn-sm"
+              className="btn btn-primary btn-sm sign-in-btn"
               onClick={() => setShowLoginModal(true)}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', fontWeight: 600 }}
             >
               <i className="bi bi-person-lock"></i> Sign In
             </button>
           )}
+
+          {/* Mobile Hamburger Menu Toggle */}
+          <button
+            type="button"
+            className="mobile-menu-toggle-btn"
+            onClick={() => setIsMobileMenuOpen(prev => !prev)}
+            aria-label="Toggle navigation"
+          >
+            <i className={`bi ${isMobileMenuOpen ? 'bi-x-lg' : 'bi-list'}`}></i>
+          </button>
         </div>
       </div>
+
+      {/* Mobile Slide-Down Navigation Drawer */}
+      {isMobileMenuOpen && (
+        <div className="mobile-nav-drawer">
+          <NavLink to="/" end className={({ isActive }) => `mobile-nav-link ${isActive ? 'active' : ''}`} onClick={() => setIsMobileMenuOpen(false)}>
+            <i className="bi bi-house"></i> Home
+          </NavLink>
+          <NavLink to="/lost" className={({ isActive }) => `mobile-nav-link ${isActive ? 'active' : ''}`} onClick={() => setIsMobileMenuOpen(false)}>
+            <i className="bi bi-search"></i> Report Lost Item
+          </NavLink>
+          <NavLink to="/found" className={({ isActive }) => `mobile-nav-link ${isActive ? 'active' : ''}`} onClick={() => setIsMobileMenuOpen(false)}>
+            <i className="bi bi-box-seam"></i> Report Found Property
+          </NavLink>
+          <NavLink to="/status" className={({ isActive }) => `mobile-nav-link ${isActive ? 'active' : ''}`} onClick={() => setIsMobileMenuOpen(false)}>
+            <i className="bi bi-speedometer2"></i> My Dashboard &amp; Verification
+          </NavLink>
+          
+          <div className="mobile-nav-footer">
+            {isLoggedIn ? (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '0.88rem' }}>{user.full_name || user.phone}</div>
+                  <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>{user.phone}</div>
+                </div>
+                <button type="button" className="btn btn-outline btn-sm" onClick={() => { setIsMobileMenuOpen(false); logout(); }}>
+                  <i className="bi bi-box-arrow-right"></i> Sign Out
+                </button>
+              </div>
+            ) : (
+              <button type="button" className="btn btn-primary btn-sm" style={{ width: '100%' }} onClick={() => { setIsMobileMenuOpen(false); setShowLoginModal(true); }}>
+                <i className="bi bi-person-lock"></i> Sign In to Account
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </header>
   );
 }
