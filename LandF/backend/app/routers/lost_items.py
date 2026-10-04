@@ -44,8 +44,13 @@ def create_lost_item(payload: LostItemCreate, background_tasks: BackgroundTasks)
     email_clean = payload.owner_email.strip().lower()
     raw_phone = payload.owner_phone.strip()
     norm_phone = normalize_phone(raw_phone)
+    clean_10 = norm_phone[-10:] if len(norm_phone) >= 10 else norm_phone
+    clean_pattern = f"%{clean_10}%" if clean_10 else raw_phone
     
-    cursor.execute("SELECT id, full_name, email, phone, role, created_at FROM users WHERE phone = ? OR phone LIKE ? OR lower(email) = ?", (raw_phone, f"%{norm_phone}%" if norm_phone else raw_phone, email_clean))
+    cursor.execute("""
+    SELECT id, full_name, email, phone, role, created_at FROM users 
+    WHERE phone = ? OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', ''), '(', ''), ')', '') LIKE ? OR lower(email) = ?
+    """, (raw_phone, clean_pattern, email_clean))
     user_row = cursor.fetchone()
     
     if user_row:
@@ -80,10 +85,10 @@ def create_lost_item(payload: LostItemCreate, background_tasks: BackgroundTasks)
     # Overwrite state: Archive prior active listings for same phone/user & identical product name
     cursor.execute("""
     SELECT id FROM lost_items 
-    WHERE (owner_phone = ? OR owner_phone LIKE ? OR user_id = ?) 
+    WHERE (owner_phone = ? OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(owner_phone, ' ', ''), '-', ''), '+', ''), '(', ''), ')', '') LIKE ? OR user_id = ?) 
       AND lower(product_name) = lower(?)
       AND status NOT IN ('RESOLVED', 'ARCHIVED')
-    """, (raw_phone, f"%{norm_phone}%" if norm_phone else raw_phone, user_id, payload.product_name.strip()))
+    """, (raw_phone, clean_pattern, user_id, payload.product_name.strip()))
     old_lost_rows = cursor.fetchall()
     
     for old_r in old_lost_rows:

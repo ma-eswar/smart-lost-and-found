@@ -16,23 +16,29 @@ def lookup_user_submissions(payload: StatusLookupRequest):
         raise HTTPException(status_code=400, detail="Please provide a phone number, tracking token, or ID")
         
     norm_phone = normalize_phone(query)
+    clean_10 = norm_phone[-10:] if len(norm_phone) >= 10 else norm_phone
+    clean_pattern = f"%{clean_10}%" if clean_10 else query
     conn = get_db_connection()
     cursor = conn.cursor()
     
     # Search lost items matching phone OR normalized phone OR access_token OR id OR user_id
     cursor.execute("""
     SELECT * FROM lost_items 
-    WHERE (owner_phone = ? OR owner_phone LIKE ? OR access_token = ? OR id = ? OR user_id = ?)
+    WHERE (owner_phone = ? 
+        OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(owner_phone, ' ', ''), '-', ''), '+', ''), '(', ''), ')', '') LIKE ? 
+        OR access_token = ? OR id = ? OR user_id = ?)
     ORDER BY created_at DESC
-    """, (query, f"%{norm_phone}%" if norm_phone else query, query, query, query))
+    """, (query, clean_pattern, query, query, query))
     lost_rows = cursor.fetchall()
     
     # Search found items matching phone OR normalized phone OR access_token OR id OR receipt_id OR user_id
     cursor.execute("""
     SELECT * FROM found_items 
-    WHERE (finder_phone = ? OR finder_phone LIKE ? OR access_token = ? OR id = ? OR desk_intake_receipt_id = ? OR user_id = ?)
+    WHERE (finder_phone = ? 
+        OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(finder_phone, ' ', ''), '-', ''), '+', ''), '(', ''), ')', '') LIKE ? 
+        OR access_token = ? OR id = ? OR desk_intake_receipt_id = ? OR user_id = ?)
     ORDER BY created_at DESC
-    """, (query, f"%{norm_phone}%" if norm_phone else query, query, query, query, query))
+    """, (query, clean_pattern, query, query, query, query))
     found_rows = cursor.fetchall()
     
     formatted_lost = []
@@ -134,13 +140,15 @@ def get_user_notifications(user_identifier: str):
         return []
 
     norm_phone = normalize_phone(ident)
+    clean_10 = norm_phone[-10:] if len(norm_phone) >= 10 else norm_phone
+    clean_pattern = f"%{clean_10}%" if clean_10 else ident
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("""
     SELECT * FROM notifications 
-    WHERE user_id = ? OR phone = ? OR phone LIKE ?
+    WHERE user_id = ? OR phone = ? OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', ''), '(', ''), ')', '') LIKE ?
     ORDER BY created_at DESC LIMIT 30
-    """, (ident, ident, f"%{norm_phone}%" if norm_phone else ident))
+    """, (ident, ident, clean_pattern))
     rows = cursor.fetchall()
     conn.close()
 
@@ -184,6 +192,8 @@ def get_user_financial_metrics(user_id: str):
     """
     ident = user_id.strip()
     norm_phone = normalize_phone(ident)
+    clean_10 = norm_phone[-10:] if len(norm_phone) >= 10 else norm_phone
+    clean_pattern = f"%{clean_10}%" if clean_10 else ident
     conn = get_db_connection()
     cursor = conn.cursor()
 
@@ -192,8 +202,8 @@ def get_user_financial_metrics(user_id: str):
     SELECT COALESCE(SUM(e.amount), 0.0) as total_earned
     FROM escrow_records e
     JOIN found_items f ON e.found_item_id = f.id
-    WHERE (f.user_id = ? OR f.finder_phone = ? OR f.finder_phone LIKE ?) AND e.status IN ('DISBURSED', 'RELEASED')
-    """, (ident, ident, f"%{norm_phone}%" if norm_phone else ident))
+    WHERE (f.user_id = ? OR f.finder_phone = ? OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(f.finder_phone, ' ', ''), '-', ''), '+', ''), '(', ''), ')', '') LIKE ?) AND e.status IN ('DISBURSED', 'RELEASED')
+    """, (ident, ident, clean_pattern))
     row_earned = cursor.fetchone()
     rewards_earned = float(row_earned["total_earned"]) if row_earned else 0.0
 
@@ -202,23 +212,23 @@ def get_user_financial_metrics(user_id: str):
     SELECT COALESCE(SUM(e.amount), 0.0) as total_spent
     FROM escrow_records e
     JOIN lost_items l ON e.lost_item_id = l.id
-    WHERE (l.user_id = ? OR l.owner_phone = ? OR l.owner_phone LIKE ?) AND e.status IN ('DISBURSED', 'RELEASED')
-    """, (ident, ident, f"%{norm_phone}%" if norm_phone else ident))
+    WHERE (l.user_id = ? OR l.owner_phone = ? OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(l.owner_phone, ' ', ''), '-', ''), '+', ''), '(', ''), ')', '') LIKE ?) AND e.status IN ('DISBURSED', 'RELEASED')
+    """, (ident, ident, clean_pattern))
     row_spent = cursor.fetchone()
     money_spent = float(row_spent["total_spent"]) if row_spent else 0.0
 
     # 3. Active lost items count
     cursor.execute("""
     SELECT COUNT(*) as cnt FROM lost_items 
-    WHERE (user_id = ? OR owner_phone = ? OR owner_phone LIKE ?) AND status NOT IN ('RESOLVED', 'ARCHIVED')
-    """, (ident, ident, f"%{norm_phone}%" if norm_phone else ident))
+    WHERE (user_id = ? OR owner_phone = ? OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(owner_phone, ' ', ''), '-', ''), '+', ''), '(', ''), ')', '') LIKE ?) AND status NOT IN ('RESOLVED', 'ARCHIVED')
+    """, (ident, ident, clean_pattern))
     active_lost_count = cursor.fetchone()["cnt"]
 
     # 4. Active found items count
     cursor.execute("""
     SELECT COUNT(*) as cnt FROM found_items 
-    WHERE (user_id = ? OR finder_phone = ? OR finder_phone LIKE ?) AND status NOT IN ('RESOLVED', 'ARCHIVED')
-    """, (ident, ident, f"%{norm_phone}%" if norm_phone else ident))
+    WHERE (user_id = ? OR finder_phone = ? OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(finder_phone, ' ', ''), '-', ''), '+', ''), '(', ''), ')', '') LIKE ?) AND status NOT IN ('RESOLVED', 'ARCHIVED')
+    """, (ident, ident, clean_pattern))
     active_found_count = cursor.fetchone()["cnt"]
 
     conn.close()

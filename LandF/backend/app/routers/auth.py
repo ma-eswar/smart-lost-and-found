@@ -47,28 +47,32 @@ def request_otp(payload: OTPRequest):
     if not norm_phone or len(norm_phone) < 7:
         raise HTTPException(status_code=400, detail="Please enter a valid mobile number.")
 
+    clean_10 = norm_phone[-10:] if len(norm_phone) >= 10 else norm_phone
+    clean_pattern = f"%{clean_10}%"
+
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    # Check if this phone number exists in users, lost_items, or found_items
+    # Check if this phone number exists in users, lost_items, or found_items (ignoring formatting/spaces)
     cursor.execute("""
     SELECT id, full_name, phone FROM users
-    WHERE phone = ? OR phone LIKE ?
-    """, (raw_phone, f"%{norm_phone}%"))
+    WHERE phone = ? OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', ''), '(', ''), ')', '') LIKE ?
+    LIMIT 1
+    """, (raw_phone, clean_pattern))
     user_match = cursor.fetchone()
 
     cursor.execute("""
     SELECT id, owner_name, owner_phone FROM lost_items
-    WHERE owner_phone = ? OR owner_phone LIKE ?
+    WHERE owner_phone = ? OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(owner_phone, ' ', ''), '-', ''), '+', ''), '(', ''), ')', '') LIKE ?
     LIMIT 1
-    """, (raw_phone, f"%{norm_phone}%"))
+    """, (raw_phone, clean_pattern))
     lost_match = cursor.fetchone()
 
     cursor.execute("""
     SELECT id, finder_name, finder_phone FROM found_items
-    WHERE finder_phone = ? OR finder_phone LIKE ?
+    WHERE finder_phone = ? OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(finder_phone, ' ', ''), '-', ''), '+', ''), '(', ''), ')', '') LIKE ?
     LIMIT 1
-    """, (raw_phone, f"%{norm_phone}%"))
+    """, (raw_phone, clean_pattern))
     found_match = cursor.fetchone()
 
     conn.close()
@@ -82,13 +86,15 @@ def request_otp(payload: OTPRequest):
     # Generate OTP code (or default 123456)
     otp_code = generate_otp()
     ACTIVE_OTPS[norm_phone] = otp_code
+    ACTIVE_OTPS[clean_10] = otp_code
+    ACTIVE_OTPS[raw_phone] = otp_code
 
     user_name = "User"
-    if user_match:
+    if user_match and user_match["full_name"]:
         user_name = user_match["full_name"]
-    elif lost_match:
+    elif lost_match and lost_match["owner_name"]:
         user_name = lost_match["owner_name"]
-    elif found_match:
+    elif found_match and found_match["finder_name"]:
         user_name = found_match["finder_name"]
 
     return {
@@ -103,9 +109,11 @@ def request_otp(payload: OTPRequest):
 def verify_otp(payload: OTPVerify):
     raw_phone = payload.phone.strip()
     norm_phone = normalize_phone(raw_phone)
+    clean_10 = norm_phone[-10:] if len(norm_phone) >= 10 else norm_phone
+    clean_pattern = f"%{clean_10}%"
     code = payload.code.strip()
 
-    valid_otp = ACTIVE_OTPS.get(norm_phone)
+    valid_otp = ACTIVE_OTPS.get(norm_phone) or ACTIVE_OTPS.get(clean_10) or ACTIVE_OTPS.get(raw_phone)
     if code != "123456" and code != valid_otp:
         raise HTTPException(status_code=400, detail="Invalid or expired verification code. Please try again.")
 
@@ -115,18 +123,27 @@ def verify_otp(payload: OTPVerify):
     try:
         cursor.execute("""
         SELECT id, full_name, email, phone, role, created_at FROM users
-        WHERE phone = ? OR phone LIKE ?
-        """, (raw_phone, f"%{norm_phone}%" if norm_phone else raw_phone))
+        WHERE phone = ? OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', ''), '(', ''), ')', '') LIKE ?
+        LIMIT 1
+        """, (raw_phone, clean_pattern))
         user_row = cursor.fetchone()
 
         now_str = datetime.now().isoformat()
 
         if not user_row:
             # Check lost_items or found_items for details to create user
-            cursor.execute("SELECT owner_name, owner_email, owner_phone FROM lost_items WHERE owner_phone = ? OR owner_phone LIKE ? LIMIT 1", (raw_phone, f"%{norm_phone}%" if norm_phone else raw_phone))
+            cursor.execute("""
+            SELECT owner_name, owner_email, owner_phone FROM lost_items 
+            WHERE owner_phone = ? OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(owner_phone, ' ', ''), '-', ''), '+', ''), '(', ''), ')', '') LIKE ?
+            LIMIT 1
+            """, (raw_phone, clean_pattern))
             lost_row = cursor.fetchone()
             
-            cursor.execute("SELECT finder_name, finder_email, finder_phone FROM found_items WHERE finder_phone = ? OR finder_phone LIKE ? LIMIT 1", (raw_phone, f"%{norm_phone}%" if norm_phone else raw_phone))
+            cursor.execute("""
+            SELECT finder_name, finder_email, finder_phone FROM found_items 
+            WHERE finder_phone = ? OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(finder_phone, ' ', ''), '-', ''), '+', ''), '(', ''), ')', '') LIKE ?
+            LIMIT 1
+            """, (raw_phone, clean_pattern))
             found_row = cursor.fetchone()
 
             full_name = "Campus User"
@@ -316,19 +333,22 @@ def get_profile(authorization: Optional[str] = Header(None)):
 
     # Fetch user's active submissions
     norm_phone = normalize_phone(user["phone"])
+    clean_10 = norm_phone[-10:] if len(norm_phone) >= 10 else norm_phone
+    clean_pattern = f"%{clean_10}%"
+
     conn = get_db_connection()
     cursor = conn.cursor()
 
     cursor.execute("""
     SELECT COUNT(*) FROM lost_items 
-    WHERE user_id = ? OR owner_phone = ? OR owner_phone LIKE ?
-    """, (user["id"], user["phone"], f"%{norm_phone}%"))
+    WHERE user_id = ? OR owner_phone = ? OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(owner_phone, ' ', ''), '-', ''), '+', ''), '(', ''), ')', '') LIKE ?
+    """, (user["id"], user["phone"], clean_pattern))
     lost_count = cursor.fetchone()[0]
 
     cursor.execute("""
     SELECT COUNT(*) FROM found_items 
-    WHERE user_id = ? OR finder_phone = ? OR finder_phone LIKE ?
-    """, (user["id"], user["phone"], f"%{norm_phone}%"))
+    WHERE user_id = ? OR finder_phone = ? OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(finder_phone, ' ', ''), '-', ''), '+', ''), '(', ''), ')', '') LIKE ?
+    """, (user["id"], user["phone"], clean_pattern))
     found_count = cursor.fetchone()[0]
 
     conn.close()
