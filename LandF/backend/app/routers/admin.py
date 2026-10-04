@@ -200,6 +200,8 @@ def get_pending_handover_approvals(x_admin_pin: Optional[str] = Header(None)):
 
     for r in probe_rows:
         pair_key = (r["lost_item_id"], r["found_item_id"])
+        if pair_key in seen_pairs:
+            continue
         seen_pairs.add(pair_key)
         eval_id = r["me_eval_id"] or f"EVAL-{r['lost_item_id'][-6:]}-{r['found_item_id'][-6:]}"
 

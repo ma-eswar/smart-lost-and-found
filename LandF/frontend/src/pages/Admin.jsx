@@ -344,7 +344,7 @@ export default function Admin() {
               <p className="text-muted small">All candidate matches are currently signed off or in search progress.</p>
             </div>
           ) : (
-            pendingApprovals.map((appr) => {
+            pendingApprovals.map((appr, idx) => {
               const isApproved = appr.admin_decision === 'APPROVED';
               const isRejected = appr.admin_decision === 'REJECTED';
               const probe = appr.probe;
@@ -352,7 +352,7 @@ export default function Admin() {
 
               return (
                 <div
-                  key={appr.evaluation_id}
+                  key={`${appr.evaluation_id}-${appr.probe?.id || idx}`}
                   className="form-card listing-card"
                   style={{
                     border: isApproved ? '2px solid #86efac' : isRejected ? '1.5px solid #fca5a5' : '1.5px solid #fcd34d',
