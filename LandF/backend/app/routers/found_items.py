@@ -4,25 +4,18 @@ from datetime import datetime
 from app.database import get_db_connection
 from app.schemas import FoundItemDeskCreate, FoundItemDirectCreate, FoundItemResponse
 from app.security import generate_access_token, generate_intake_id
-from app.services.matching_pipeline import run_matching_pipeline_for_lost_item
+from app.services.matching_pipeline import run_matching_pipeline_for_lost_item, run_matching_pipeline_for_found_item
 from app.services.storage import save_base64_image
 
 router = APIRouter(prefix="/api/found-items", tags=["Found Items"])
 
 
-def auto_match_all_open_lost_items():
-    conn = get_db_connection()
-    cursor = conn.cursor()
+def auto_match_for_new_found_item(found_id: str):
     try:
-        cursor.execute("SELECT id FROM lost_items WHERE status IN ('REPORTED', 'SEARCHING', 'MATCH_CANDIDATE_FOUND')")
-        lost_ids = [row["id"] for row in cursor.fetchall()]
-        for lost_id in lost_ids:
-            try:
-                run_matching_pipeline_for_lost_item(lost_id)
-            except Exception as exc:
-                print(f"Auto-match error for {lost_id}: {exc}")
-    finally:
-        conn.close()
+        run_matching_pipeline_for_found_item(found_id)
+    except Exception as exc:
+        print(f"Auto-match error for found item {found_id}: {exc}")
+
 
 
 @router.post("/desk", response_model=FoundItemResponse)
@@ -103,7 +96,7 @@ def create_desk_found_item(payload: FoundItemDeskCreate, background_tasks: Backg
     conn.commit()
     conn.close()
 
-    background_tasks.add_task(auto_match_all_open_lost_items)
+    background_tasks.add_task(auto_match_for_new_found_item, item_id)
     
     return FoundItemResponse(
         id=item_id,
@@ -193,7 +186,7 @@ def create_direct_found_item(payload: FoundItemDirectCreate, background_tasks: B
     conn.commit()
     conn.close()
 
-    background_tasks.add_task(auto_match_all_open_lost_items)
+    background_tasks.add_task(auto_match_for_new_found_item, item_id)
     
     return FoundItemResponse(
         id=item_id,

@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../services/api';
+import { useToast } from '../components/Toast';
 
 export default function Admin() {
+  const toast = useToast();
   const [pin, setPin] = useState(localStorage.getItem('admin_pin') || '');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authError, setAuthError] = useState('');
@@ -13,12 +15,11 @@ export default function Admin() {
   const [escrowRecords, setEscrowRecords] = useState([]);
   const [desks, setDesks] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [statusMsg, setStatusMsg] = useState({ text: '', type: '' });
 
   // Handover state
   const [handoverCode, setHandoverCode] = useState('');
   const [selectedDesk, setSelectedDesk] = useState('DESK-LIB-02');
-  const [officerName, setOfficerName] = useState('Duty Officer');
+  const [officerName, setOfficerName] = useState('Officer Rajesh Kumar');
   const [handoverResult, setHandoverResult] = useState(null);
 
   // Match Evaluation modal state
@@ -52,6 +53,7 @@ export default function Admin() {
     localStorage.removeItem('admin_pin');
     setPin('');
     setIsAuthenticated(false);
+    toast.info('Logged out from staff terminal.');
   };
 
   const fetchAdminData = async (currentPin = pin) => {
@@ -68,7 +70,7 @@ export default function Admin() {
       setEscrowRecords(escrow);
       setDesks(deskList);
     } catch (err) {
-      setStatusMsg({ text: 'Error loading admin data: ' + err.message, type: 'error' });
+      toast.error(err);
     } finally {
       setLoading(false);
     }
@@ -81,10 +83,10 @@ export default function Admin() {
     try {
       const res = await api.evaluateMatches(lostItemId, pin);
       setMatchResults(res);
-      setStatusMsg({ text: `Matching evaluated: ${res.evaluations?.length || 0} candidate(s) compared.`, type: 'success' });
+      toast.success(`Matching evaluated: ${res.evaluations?.length || 0} candidate(s) compared.`);
       fetchAdminData();
     } catch (err) {
-      setStatusMsg({ text: 'Match check failed: ' + err.message, type: 'error' });
+      toast.error(err);
     } finally {
       setEvalLoading(false);
     }
@@ -93,39 +95,33 @@ export default function Admin() {
   const generatePasscode = async (evaluationId) => {
     try {
       const res = await api.generatePasscode(evaluationId, pin);
-      setStatusMsg({
-        text: `Handover Passcode Generated: ${res.handover_passcode} (Expires: ${new Date(res.passcode_expires_at).toLocaleTimeString()})`,
-        type: 'success'
-      });
+      toast.success(`Handover Passcode Generated: ${res.handover_passcode}`);
       if (evaluatingId) {
         const updatedResults = await api.getMatchResults(evaluatingId, pin);
         setMatchResults(updatedResults);
       }
     } catch (err) {
-      setStatusMsg({ text: 'Passcode generation failed: ' + err.message, type: 'error' });
+      toast.error(err);
     }
   };
 
   const requestPhotoVerification = async (lostItemId, foundItemId) => {
     try {
       const res = await api.createProbe(lostItemId, foundItemId, 0, pin);
-      setStatusMsg({
-        text: `Photo Verification Request created (Probe ID: ${res.probe_id}). Finder can upload requested photo via Status portal.`,
-        type: 'success'
-      });
+      toast.success(`Photo Verification Request created (Probe ID: ${res.probe_id}).`);
       if (evaluatingId) {
         const updatedResults = await api.getMatchResults(evaluatingId, pin);
         setMatchResults(updatedResults);
       }
     } catch (err) {
-      setStatusMsg({ text: 'Failed to create photo probe: ' + err.message, type: 'error' });
+      toast.error(err);
     }
   };
 
   const handleHandoverSubmit = async (e) => {
     e.preventDefault();
     if (!handoverCode || handoverCode.trim().length !== 6) {
-      setStatusMsg({ text: 'Please enter a valid 6-digit pickup code', type: 'error' });
+      toast.error('Please enter a valid 6-digit pickup passcode');
       return;
     }
 
@@ -133,357 +129,332 @@ export default function Admin() {
       const res = await api.verifyHandoverPasscode(handoverCode.trim(), selectedDesk, officerName, pin);
       setHandoverResult(res);
       setHandoverCode('');
-      setStatusMsg({
-        text: `Handover successfully verified! Escrow disbursed: Rs. ${res.escrow_amount}. Records archived.`,
-        type: 'success'
-      });
+      toast.success(`Handover verified! Escrow disbursed: ₹${res.escrow_amount || 0}. Record archived.`);
       fetchAdminData();
     } catch (err) {
-      setStatusMsg({ text: 'Handover verification failed: ' + err.message, type: 'error' });
+      toast.error(err);
       setHandoverResult(null);
     }
   };
 
   if (!isAuthenticated) {
     return (
-      <div className="container py-5" style={{ maxWidth: '440px' }}>
-        <div className="card shadow border-0 p-4">
-          <div className="text-center mb-4">
-            <div className="bg-primary text-white rounded-circle d-inline-flex p-3 mb-2">
-              <i className="bi bi-shield-lock fs-2"></i>
-            </div>
-            <h3 className="fw-bold">Staff Access Portal</h3>
-            <p className="text-muted small">Enter your staff PIN to access the handover terminal & active match manager.</p>
+      <div className="main-content" style={{ maxWidth: '440px' }}>
+        <div className="form-card" style={{ textAlign: 'center' }}>
+          <div style={{ width: '56px', height: '56px', background: '#eff6ff', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 0.75rem auto' }}>
+            <i className="bi bi-shield-lock" style={{ fontSize: '1.8rem', color: 'var(--color-primary)' }}></i>
           </div>
+          <h3 style={{ fontSize: '1.5rem', fontWeight: 800 }}>Staff Terminal Access</h3>
+          <p className="field-hint" style={{ color: 'var(--text-secondary)' }}>
+            Enter your duty officer PIN to unlock the verification engine &amp; handover terminal.
+          </p>
 
-          {authError && <div className="alert alert-danger py-2 small mb-3">{authError}</div>}
+          {authError && <div className="toast-card toast-error" style={{ margin: '0.5rem 0' }}>{authError}</div>}
 
           <form onSubmit={(e) => { e.preventDefault(); handleLogin(pin); }}>
-            <div className="mb-3">
-              <label className="form-label fw-bold small">Staff Security PIN</label>
+            <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+              <label style={{ textAlign: 'left' }}>Staff Security PIN</label>
               <input
                 type="password"
-                className="form-control form-control-lg text-center fw-bold"
+                className="form-control text-center"
+                style={{ fontSize: '1.25rem', letterSpacing: '0.2em' }}
                 placeholder="Enter PIN (e.g. admin123)"
                 value={pin}
                 onChange={(e) => setPin(e.target.value)}
                 autoFocus
+                required
               />
             </div>
-            <button type="submit" className="btn btn-primary w-100 py-2 fw-bold" disabled={loading}>
-              {loading ? 'Authenticating...' : 'Unlock Staff Terminal'}
+            <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={loading}>
+              {loading ? <><i className="bi bi-hourglass-split"></i> Authenticating...</> : <><i className="bi bi-unlock"></i> Unlock Staff Terminal</>}
             </button>
           </form>
-          <div className="text-center mt-3">
-            <small className="text-muted">Default PIN: <code>admin123</code></small>
-          </div>
+          <span className="field-hint" style={{ marginTop: '0.5rem' }}>Default test PIN: <code>admin123</code></span>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="container py-4">
-      {/* Header */}
-      <div className="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom">
+    <div className="main-content" style={{ maxWidth: '1140px' }}>
+      {/* 1. Header & Action Bar Alignment */}
+      <div className="admin-header-bar">
         <div>
-          <h2 className="fw-bold mb-1">
-            <i className="bi bi-person-badge text-primary me-2"></i>
-            Staff & Handover Terminal
+          <h2 style={{ fontSize: '1.75rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <i className="bi bi-person-badge" style={{ color: 'var(--color-primary)' }}></i>
+            Staff &amp; Handover Terminal
           </h2>
-          <p className="text-muted mb-0 small">Desk Operations, Active Match Engine, Escrow Releases, and Archive Management</p>
+          <span className="field-hint" style={{ color: 'var(--text-secondary)' }}>
+            Verified Partner Desk Operations, 5-Stage Matching Engine &amp; Escrow Releases
+          </span>
         </div>
-        <div className="d-flex gap-2">
-          <Link to="/archive" className="btn btn-outline-secondary btn-sm">
-            <i className="bi bi-archive me-1"></i> View Archive
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <button type="button" className="btn btn-outline btn-sm" onClick={() => fetchAdminData()} disabled={loading}>
+            <i className="bi bi-arrow-clockwise"></i> Refresh
+          </button>
+          <Link to="/archive" className="btn btn-outline btn-sm">
+            <i className="bi bi-archive"></i> Archives
           </Link>
-          <button className="btn btn-outline-danger btn-sm" onClick={handleLogout}>
-            <i className="bi bi-box-arrow-right me-1"></i> Log Out
+          <button type="button" className="btn btn-outline btn-sm" style={{ color: 'var(--color-rose)', borderColor: '#fecaca' }} onClick={handleLogout}>
+            <i className="bi bi-box-arrow-right"></i> Log Out
           </button>
         </div>
       </div>
 
-      {statusMsg.text && (
-        <div className={`alert ${statusMsg.type === 'error' ? 'alert-danger' : 'alert-success'} alert-dismissible fade show mb-4`} role="alert">
-          {statusMsg.text}
-          <button type="button" className="btn-close" onClick={() => setStatusMsg({ text: '', type: '' })}></button>
-        </div>
-      )}
+      {/* 2. 5 Admin Tabs */}
+      <div className="admin-tab-bar">
+        <button
+          type="button"
+          className={`admin-tab-btn ${activeTab === 'lost' ? 'active' : ''}`}
+          onClick={() => setActiveTab('lost')}
+        >
+          <i className="bi bi-search"></i> Lost Reports ({lostItems.length})
+        </button>
+        <button
+          type="button"
+          className={`admin-tab-btn ${activeTab === 'found' ? 'active' : ''}`}
+          onClick={() => setActiveTab('found')}
+        >
+          <i className="bi bi-box-seam"></i> Found Items ({foundItems.length})
+        </button>
+        <button
+          type="button"
+          className={`admin-tab-btn ${activeTab === 'terminal' ? 'active' : ''}`}
+          onClick={() => setActiveTab('terminal')}
+        >
+          <i className="bi bi-key"></i> Handover Terminal
+        </button>
+        <button
+          type="button"
+          className={`admin-tab-btn ${activeTab === 'escrow' ? 'active' : ''}`}
+          onClick={() => setActiveTab('escrow')}
+        >
+          <i className="bi bi-cash-stack"></i> Rewards Vault ({escrowRecords.length})
+        </button>
+        <button
+          type="button"
+          className={`admin-tab-btn ${activeTab === 'desks' ? 'active' : ''}`}
+          onClick={() => setActiveTab('desks')}
+        >
+          <i className="bi bi-building"></i> Partner Desks ({desks.length})
+        </button>
+      </div>
 
-      {/* Tabs */}
-      <ul className="nav nav-pills mb-4 border-bottom pb-3">
-        <li className="nav-item">
-          <button
-            className={`nav-link fw-semibold ${activeTab === 'lost' ? 'active' : ''}`}
-            onClick={() => setActiveTab('lost')}
-          >
-            <i className="bi bi-search me-1"></i> Active Lost Items ({lostItems.length})
-          </button>
-        </li>
-        <li className="nav-item">
-          <button
-            className={`nav-link fw-semibold ${activeTab === 'found' ? 'active' : ''}`}
-            onClick={() => setActiveTab('found')}
-          >
-            <i className="bi bi-box-seam me-1"></i> Active Found Items ({foundItems.length})
-          </button>
-        </li>
-        <li className="nav-item">
-          <button
-            className={`nav-link fw-semibold ${activeTab === 'terminal' ? 'active' : ''}`}
-            onClick={() => setActiveTab('terminal')}
-          >
-            <i className="bi bi-check-circle me-1"></i> Handover & Pickup Terminal
-          </button>
-        </li>
-        <li className="nav-item">
-          <button
-            className={`nav-link fw-semibold ${activeTab === 'escrow' ? 'active' : ''}`}
-            onClick={() => setActiveTab('escrow')}
-          >
-            <i className="bi bi-cash-stack me-1"></i> Escrow Vault ({escrowRecords.length})
-          </button>
-        </li>
-      </ul>
-
-      {/* Tab 1: Active Lost Items */}
+      {/* Tab 1: Lost Reports */}
       {activeTab === 'lost' && (
-        <div className="card border-0 shadow-sm">
-          <div className="card-header bg-white py-3 d-flex justify-content-between align-items-center">
-            <h5 className="mb-0 fw-bold">Active Lost Reports</h5>
-            <button className="btn btn-sm btn-outline-primary" onClick={() => fetchAdminData()} disabled={loading}>
-              <i className="bi bi-arrow-clockwise me-1"></i> Refresh
-            </button>
-          </div>
-          <div className="card-body p-0">
-            {lostItems.length === 0 ? (
-              <div className="p-4 text-center text-muted">No active lost items reported.</div>
-            ) : (
-              <div className="table-responsive">
-                <table className="table table-hover align-middle mb-0">
-                  <thead className="table-light small">
-                    <tr>
-                      <th>Report ID</th>
-                      <th>Item & Category</th>
-                      <th>Location / Landmark</th>
-                      <th>Confirmation Details</th>
-                      <th>Owner Contact</th>
-                      <th>Status</th>
-                      <th className="text-end">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {lostItems.map(item => (
-                      <tr key={item.id}>
-                        <td><code>{item.id}</code></td>
-                        <td>
-                          <div className="fw-bold">{item.title || item.product_name}</div>
-                          <small className="text-muted badge bg-light text-dark">{item.category}</small>
-                        </td>
-                        <td>
-                          <small className="d-block">{item.location_name || item.last_seen_location || 'Not specified'}</small>
-                          {item.latitude && item.longitude && (
-                            <small className="text-muted">({item.latitude.toFixed(4)}, {item.longitude.toFixed(4)})</small>
-                          )}
-                        </td>
-                        <td>
-                          {item.secret_points && item.secret_points.length > 0 ? (
-                            <div className="small" style={{ maxWidth: '220px' }}>
-                              <span className="badge bg-light text-dark mb-1">{item.secret_points.length} Verification Detail(s)</span>
-                              <div className="text-truncate" title={item.secret_points.map((p, i) => `${p.question ? p.question + ': ' : ''}${p.point || p}`).join(' | ')}>
-                                {item.secret_points[0].point || item.secret_points[0]}
-                              </div>
-                            </div>
-                          ) : (
-                            <span className="small text-truncate d-inline-block" style={{ maxWidth: '180px' }} title={item.secret_point}>
-                              {item.secret_point || '—'}
-                            </span>
-                          )}
-                        </td>
-                        <td>
-                          <div>{item.contact_phone}</div>
-                          <small className="text-muted">{item.claimant_name}</small>
-                        </td>
-                        <td>
-                          <span className={`badge ${
-                            item.status === 'ARCHIVED' ? 'bg-secondary' :
-                            item.status === 'MATCHED' ? 'bg-success' : 'bg-warning text-dark'
-                          }`}>
-                            {item.status}
+        <div className="admin-table-wrapper" id="admin-lost-list">
+          {lostItems.length === 0 ? (
+            <div style={{ padding: '2.5rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+              No active lost reports in registry.
+            </div>
+          ) : (
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>Report ID</th>
+                  <th>Item &amp; Category</th>
+                  <th>Location / Landmark</th>
+                  <th>Confirmation Details</th>
+                  <th>Owner Contact</th>
+                  <th>Status</th>
+                  <th style={{ textAlign: 'right' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {lostItems.map((item) => (
+                  <tr key={item.id}>
+                    <td><code>{item.id}</code></td>
+                    <td>
+                      <strong>{item.title || item.product_name}</strong>
+                      <span className="badge badge-neutral" style={{ display: 'block', width: 'fit-content', marginTop: '0.2rem', fontSize: '0.72rem' }}>
+                        {item.category}
+                      </span>
+                    </td>
+                    <td>
+                      <div>{item.location_name || item.last_seen_location || 'Not specified'}</div>
+                      {item.latitude && item.longitude && (
+                        <span className="field-hint">({item.latitude.toFixed(4)}, {item.longitude.toFixed(4)})</span>
+                      )}
+                    </td>
+                    <td>
+                      {item.secret_points && item.secret_points.length > 0 ? (
+                        <div style={{ maxWidth: '220px' }}>
+                          <span className="badge badge-neutral" style={{ fontSize: '0.7rem', marginBottom: '0.2rem' }}>
+                            {item.secret_points.length} Detail(s)
                           </span>
-                        </td>
-                        <td className="text-end">
-                          <button
-                            className="btn btn-sm btn-primary"
-                            onClick={() => runMatchCheck(item.id)}
-                            disabled={evalLoading}
-                          >
-                            <i className="bi bi-cpu me-1"></i> Run Match Check
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
+                          <div style={{ fontSize: '0.8rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={item.secret_points.map(p => p.point || p).join(' | ')}>
+                            {item.secret_points[0].point || item.secret_points[0]}
+                          </div>
+                        </div>
+                      ) : (
+                        <span style={{ color: 'var(--text-muted)' }}>—</span>
+                      )}
+                    </td>
+                    <td>
+                      <div>{item.contact_phone}</div>
+                      <span className="field-hint">{item.claimant_name}</span>
+                    </td>
+                    <td>
+                      <span className={`badge ${
+                        item.status === 'ARCHIVED' || item.status === 'RESOLVED' ? 'badge-verified' :
+                        item.status === 'MATCHED' ? 'badge-verified' : 'badge-lost'
+                      }`}>
+                        {item.status}
+                      </span>
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <button
+                        type="button"
+                        className="btn btn-primary btn-sm"
+                        onClick={() => runMatchCheck(item.id)}
+                        disabled={evalLoading}
+                      >
+                        <i className="bi bi-cpu"></i> Match Engine
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       )}
 
-      {/* Tab 2: Active Found Items */}
+      {/* Tab 2: Found Items */}
       {activeTab === 'found' && (
-        <div className="card border-0 shadow-sm">
-          <div className="card-header bg-white py-3 d-flex justify-content-between align-items-center">
-            <h5 className="mb-0 fw-bold">Active Found Items In Custody</h5>
-            <button className="btn btn-sm btn-outline-primary" onClick={() => fetchAdminData()} disabled={loading}>
-              <i className="bi bi-arrow-clockwise me-1"></i> Refresh
-            </button>
-          </div>
-          <div className="card-body p-0">
-            {foundItems.length === 0 ? (
-              <div className="p-4 text-center text-muted">No active found items in registry.</div>
-            ) : (
-              <div className="table-responsive">
-                <table className="table table-hover align-middle mb-0">
-                  <thead className="table-light small">
-                    <tr>
-                      <th>Found ID</th>
-                      <th>Item & Category</th>
-                      <th>Custody Type</th>
-                      <th>Found Location</th>
-                      <th>Finder Contact</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {foundItems.map(item => (
-                      <tr key={item.id}>
-                        <td><code>{item.id}</code></td>
-                        <td>
-                          <div className="fw-bold">{item.title}</div>
-                          <small className="text-muted">{item.category}</small>
-                        </td>
-                        <td>
-                          <span className={`badge ${item.custody_type === 'DESK' ? 'bg-info text-dark' : 'bg-warning text-dark'}`}>
-                            {item.custody_type === 'DESK' ? 'Physical Desk' : 'Direct Holding'}
-                          </span>
-                          {item.desk_id && <small className="d-block text-muted">{item.desk_id}</small>}
-                        </td>
-                        <td>{item.location_name || 'Not specified'}</td>
-                        <td>
-                          <div>{item.finder_phone || 'Anonymous'}</div>
-                          {item.finder_upi && <small className="text-muted">UPI: {item.finder_upi}</small>}
-                        </td>
-                        <td>
-                          <span className={`badge ${
-                            item.status === 'ARCHIVED' ? 'bg-secondary' :
-                            item.status === 'MATCHED' ? 'bg-success' : 'bg-primary'
-                          }`}>
-                            {item.status}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
+        <div className="admin-table-wrapper" id="admin-found-list">
+          {foundItems.length === 0 ? (
+            <div style={{ padding: '2.5rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+              No active found items in registry.
+            </div>
+          ) : (
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>Found ID</th>
+                  <th>Item &amp; Category</th>
+                  <th>Custody Type</th>
+                  <th>Found Location</th>
+                  <th>Finder Contact</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {foundItems.map((item) => (
+                  <tr key={item.id}>
+                    <td><code>{item.id}</code></td>
+                    <td>
+                      <strong>{item.title || item.object_name}</strong>
+                      <span className="badge badge-neutral" style={{ display: 'block', width: 'fit-content', marginTop: '0.2rem', fontSize: '0.72rem' }}>
+                        {item.category}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={`badge ${item.custody_type === 'DESK' || item.submission_type === 'VERIFIED_DESK' ? 'badge-verified' : 'badge-neutral'}`}>
+                        {item.custody_type === 'DESK' || item.submission_type === 'VERIFIED_DESK' ? 'Physical Desk' : 'Direct Holding'}
+                      </span>
+                    </td>
+                    <td>{item.location_name || item.found_location || 'Not specified'}</td>
+                    <td>
+                      <div>{item.finder_phone || 'Anonymous'}</div>
+                      {item.finder_upi && <code style={{ fontSize: '0.75rem' }}>UPI: {item.finder_upi}</code>}
+                    </td>
+                    <td>
+                      <span className={`badge ${item.status === 'RESOLVED' ? 'badge-verified' : 'badge-found'}`}>
+                        {item.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       )}
 
       {/* Tab 3: Handover Terminal */}
       {activeTab === 'terminal' && (
-        <div className="row g-4">
-          <div className="col-lg-6">
-            <div className="card border-0 shadow-sm p-4">
-              <h5 className="fw-bold mb-3">
-                <i className="bi bi-key text-primary me-2"></i>
-                Verify Handover Passcode
-              </h5>
-              <p className="text-muted small mb-4">
-                When claimant presents their 6-digit verification passcode at the desk, verify it here to release escrow and complete transfer.
-              </p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem' }}>
+          <div className="form-card">
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0 }}>
+              <i className="bi bi-key" style={{ color: 'var(--color-primary)' }}></i>
+              Verify Physical Handover Passcode
+            </h3>
+            <p className="field-hint" style={{ color: 'var(--text-secondary)' }}>
+              When the owner presents their 6-digit passcode at the security desk, verify it here to release escrow rewards and archive records.
+            </p>
 
-              <form onSubmit={handleHandoverSubmit}>
-                <div className="mb-3">
-                  <label className="form-label fw-bold small">6-Digit Pickup Passcode</label>
-                  <input
-                    type="text"
-                    maxLength="6"
-                    className="form-control form-control-lg text-center fw-bold fs-3 tracking-wide"
-                    placeholder="000000"
-                    value={handoverCode}
-                    onChange={(e) => setHandoverCode(e.target.value)}
-                    required
-                  />
-                </div>
+            <form onSubmit={handleHandoverSubmit}>
+              <div className="form-group" style={{ marginBottom: '1rem' }}>
+                <label>6-Digit Pickup Passcode *</label>
+                <input
+                  type="text"
+                  maxLength="6"
+                  className="form-control terminal-code-input"
+                  placeholder="000000"
+                  value={handoverCode}
+                  onChange={(e) => setHandoverCode(e.target.value)}
+                  style={{ height: '44px' }}
+                  required
+                />
+              </div>
 
-                <div className="mb-3">
-                  <label className="form-label fw-bold small">Handover Desk</label>
-                  <select
-                    className="form-select"
-                    value={selectedDesk}
-                    onChange={(e) => setSelectedDesk(e.target.value)}
-                  >
-                    {desks.map(desk => (
-                      <option key={desk.id} value={desk.id}>
-                        {desk.name} ({desk.location})
-                      </option>
-                    ))}
-                  </select>
-                </div>
+              <div className="form-group" style={{ marginBottom: '1rem' }}>
+                <label>Handover Security Desk *</label>
+                <select
+                  className="form-control form-select"
+                  value={selectedDesk}
+                  onChange={(e) => setSelectedDesk(e.target.value)}
+                  style={{ height: '44px' }}
+                >
+                  {desks.map((d) => (
+                    <option key={d.id} value={d.id}>{d.name} ({d.building_or_zone || d.location})</option>
+                  ))}
+                </select>
+              </div>
 
-                <div className="mb-3">
-                  <label className="form-label fw-bold small">Duty Officer Name</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    value={officerName}
-                    onChange={(e) => setOfficerName(e.target.value)}
-                    required
-                  />
-                </div>
+              <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+                <label>Duty Officer Name *</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  value={officerName}
+                  onChange={(e) => setOfficerName(e.target.value)}
+                  style={{ height: '44px' }}
+                  required
+                />
+              </div>
 
-                <button type="submit" className="btn btn-success w-100 py-3 fw-bold">
-                  <i className="bi bi-check2-circle me-1"></i> Verify & Hand Over Property
-                </button>
-              </form>
-            </div>
+              <button type="submit" className="btn btn-success" style={{ width: '100%', height: '44px' }}>
+                <i className="bi bi-check2-circle"></i> Authenticate Passcode &amp; Disburse Escrow
+              </button>
+            </form>
           </div>
 
-          <div className="col-lg-6">
+          <div className="form-card" style={{ justifyContent: 'center' }}>
             {handoverResult ? (
-              <div className="card border-success shadow-sm p-4 bg-light">
-                <div className="d-flex align-items-center text-success mb-3">
-                  <i className="bi bi-check-circle-fill fs-2 me-2"></i>
-                  <h5 className="fw-bold mb-0">Handover Complete & Archived</h5>
+              <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 'var(--radius-sm)', padding: '1.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#166534', fontWeight: 800, marginBottom: '0.75rem' }}>
+                  <i className="bi bi-check-circle-fill" style={{ fontSize: '1.5rem' }}></i>
+                  <span>Handover Complete &amp; Disbursed</span>
                 </div>
-                <div className="p-3 bg-white rounded border mb-3">
-                  <div className="row g-2 small">
-                    <div className="col-6 text-muted">Item Title:</div>
-                    <div className="col-6 fw-bold">{handoverResult.lost_title}</div>
-                    <div className="col-6 text-muted">Claimant:</div>
-                    <div className="col-6 fw-bold">{handoverResult.claimant_name}</div>
-                    <div className="col-6 text-muted">Finder:</div>
-                    <div className="col-6 fw-bold">{handoverResult.finder_name}</div>
-                    <div className="col-6 text-muted">Escrow Payout:</div>
-                    <div className="col-6 fw-bold text-success">Rs. {handoverResult.escrow_amount}</div>
-                    <div className="col-6 text-muted">Archived At:</div>
-                    <div className="col-6">{new Date().toLocaleString()}</div>
-                  </div>
+                <div className="review-box" style={{ background: '#ffffff', marginBottom: '1rem' }}>
+                  <div className="review-row"><span>Item:</span><strong>{handoverResult.lost_title}</strong></div>
+                  <div className="review-row"><span>Claimant:</span><span>{handoverResult.claimant_name}</span></div>
+                  <div className="review-row"><span>Finder:</span><span>{handoverResult.finder_name}</span></div>
+                  <div className="review-row"><span>Escrow Payout:</span><strong style={{ color: 'var(--color-emerald)' }}>₹{handoverResult.escrow_amount}</strong></div>
+                  <div className="review-row"><span>Desk:</span><span>{handoverResult.desk_name || selectedDesk}</span></div>
                 </div>
-                <Link to="/archive" className="btn btn-outline-secondary w-100 btn-sm">
-                  <i className="bi bi-archive me-1"></i> Open Archived Records
+                <Link to="/archive" className="btn btn-outline btn-sm" style={{ width: '100%' }}>
+                  <i className="bi bi-archive"></i> Open Archived Records
                 </Link>
               </div>
             ) : (
-              <div className="card border-0 shadow-sm p-4 text-center text-muted">
-                <i className="bi bi-qr-code-scan fs-1 mb-3 text-secondary"></i>
-                <h6 className="fw-bold">Ready for Pickup Verification</h6>
-                <p className="small mb-0">
-                  Enter the 6-digit code shown on the claimant's status tracking card to verify ownership and trigger automatic escrow payout.
+              <div style={{ textAlign: 'center', padding: '2rem 1rem' }}>
+                <i className="bi bi-qr-code-scan" style={{ fontSize: '2.5rem', color: 'var(--color-slate-400)' }}></i>
+                <h4 style={{ margin: '0.75rem 0 0.25rem 0', fontWeight: 700 }}>Ready for Verification</h4>
+                <p className="field-hint">
+                  Enter the 6-digit code shown on claimant's live tracking card to securely release escrow and mark property returned.
                 </p>
               </div>
             )}
@@ -491,119 +462,193 @@ export default function Admin() {
         </div>
       )}
 
-      {/* Tab 4: Escrow Records */}
+      {/* Tab 4: Rewards Vault */}
       {activeTab === 'escrow' && (
-        <div className="card border-0 shadow-sm">
-          <div className="card-header bg-white py-3">
-            <h5 className="mb-0 fw-bold">Escrow Vault Transactions</h5>
-          </div>
-          <div className="card-body p-0">
-            {escrowRecords.length === 0 ? (
-              <div className="p-4 text-center text-muted">No escrow transactions recorded.</div>
-            ) : (
-              <div className="table-responsive">
-                <table className="table table-hover align-middle mb-0">
-                  <thead className="table-light small">
-                    <tr>
-                      <th>Escrow ID</th>
-                      <th>Lost Item ID</th>
-                      <th>Amount (INR)</th>
-                      <th>Status</th>
-                      <th>Payout UPI</th>
-                      <th>Created At</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {escrowRecords.map(rec => (
-                      <tr key={rec.id}>
-                        <td><code>{rec.id}</code></td>
-                        <td><code>{rec.lost_item_id}</code></td>
-                        <td className="fw-bold">Rs. {rec.amount}</td>
-                        <td>
-                          <span className={`badge ${rec.status === 'RELEASED' ? 'bg-success' : 'bg-warning text-dark'}`}>
-                            {rec.status}
-                          </span>
-                        </td>
-                        <td>{rec.payout_address || 'Pending'}</td>
-                        <td className="small text-muted">{new Date(rec.created_at).toLocaleString()}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
+        <div className="admin-table-wrapper" id="admin-escrow-list">
+          {escrowRecords.length === 0 ? (
+            <div style={{ padding: '2.5rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+              No escrow transactions recorded.
+            </div>
+          ) : (
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>Escrow ID</th>
+                  <th>Lost Item ID</th>
+                  <th>Pledged Amount</th>
+                  <th>Status</th>
+                  <th>Recipient UPI</th>
+                  <th>Created Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {escrowRecords.map((rec) => (
+                  <tr key={rec.id}>
+                    <td><code>{rec.id}</code></td>
+                    <td><code>{rec.lost_item_id}</code></td>
+                    <td><strong>₹{rec.amount}</strong></td>
+                    <td>
+                      <span className={`badge ${rec.status === 'RELEASED' || rec.status === 'DISBURSED' ? 'badge-verified' : 'badge-neutral'}`}>
+                        {rec.status}
+                      </span>
+                    </td>
+                    <td><code>{rec.recipient_upi || rec.payout_address || 'Pending'}</code></td>
+                    <td className="field-hint">{new Date(rec.created_at).toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       )}
 
-      {/* Match Results Modal / Overlay */}
+      {/* Tab 5: Partner Desks */}
+      {activeTab === 'desks' && (
+        <div className="admin-table-wrapper">
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>Desk ID</th>
+                <th>Facility Name</th>
+                <th>Zone / Building</th>
+                <th>Officer On Duty</th>
+                <th>Operating Hours</th>
+                <th>Contact</th>
+              </tr>
+            </thead>
+            <tbody>
+              {desks.map((d) => (
+                <tr key={d.id}>
+                  <td><code>{d.id}</code></td>
+                  <td><strong>{d.name}</strong></td>
+                  <td>{d.building_or_zone}</td>
+                  <td>{d.officer_on_duty}</td>
+                  <td><span className="badge badge-neutral">{d.operating_hours}</span></td>
+                  <td>{d.contact_phone}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* 5. Candidate Match Card Alignment & Inspector Modal */}
       {matchResults && (
-        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }} tabIndex="-1">
-          <div className="modal-dialog modal-lg modal-dialog-scrollable">
-            <div className="modal-content">
-              <div className="modal-header bg-primary text-white">
-                <h5 className="modal-title fw-bold">
-                  <i className="bi bi-cpu me-2"></i>
-                  Matching Engine Results: Item #{evaluatingId}
-                </h5>
-                <button type="button" className="btn-close btn-close-white" onClick={() => setMatchResults(null)}></button>
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 1050, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+          <div className="form-card" style={{ maxWidth: '840px', width: '100%', maxHeight: '90vh', overflowY: 'auto', padding: '1.75rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-light)', paddingBottom: '0.75rem', marginBottom: '1rem' }}>
+              <h3 style={{ fontSize: '1.3rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <i className="bi bi-cpu" style={{ color: 'var(--color-primary)' }}></i>
+                Match Engine Evaluation for Report #{evaluatingId}
+              </h3>
+              <button type="button" className="btn-icon" onClick={() => setMatchResults(null)} style={{ border: 'none' }}>
+                <i className="bi bi-x-lg"></i>
+              </button>
+            </div>
+
+            {(!matchResults.evaluations || matchResults.evaluations.length === 0) ? (
+              <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+                <i className="bi bi-info-circle" style={{ fontSize: '2rem', display: 'block', marginBottom: '0.5rem' }}></i>
+                No candidate found item matched above the confidence threshold.
               </div>
-              <div className="modal-body p-4">
-                {(!matchResults.evaluations || matchResults.evaluations.length === 0) ? (
-                  <div className="text-center py-4 text-muted">
-                    <i className="bi bi-info-circle fs-3 d-block mb-2"></i>
-                    No potential found item matches scored above the threshold.
-                  </div>
-                ) : (
-                  <div className="d-flex flex-column gap-3">
-                    {matchResults.evaluations.map((evalItem) => (
-                      <div key={evalItem.id} className="card border shadow-sm p-3">
-                        <div className="d-flex justify-content-between align-items-start mb-2">
-                          <div>
-                            <h6 className="fw-bold mb-1">Found Item: {evalItem.found_title || evalItem.found_item_id}</h6>
-                            <span className="badge bg-info text-dark me-2">Match Score: {(evalItem.composite_score * 100).toFixed(1)}%</span>
-                            <span className="badge bg-light text-dark">Stage: {evalItem.stage}</span>
-                          </div>
-                          <div>
-                            {evalItem.handover_passcode ? (
-                              <span className="badge bg-success fs-6 p-2">Code: {evalItem.handover_passcode}</span>
-                            ) : (
-                              <button
-                                className="btn btn-sm btn-success"
-                                onClick={() => generatePasscode(evalItem.id)}
-                              >
-                                <i className="bi bi-key me-1"></i> Generate 6-Digit Passcode
-                              </button>
-                            )}
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                {matchResults.evaluations.map((evalItem) => {
+                  const scorePct = (evalItem.composite_score * 100).toFixed(1);
+                  return (
+                    <div key={evalItem.id} style={{ border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)', padding: '1.25rem', background: '#fafafa' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '1rem' }}>
+                        <div>
+                          <h4 style={{ fontSize: '1.15rem', fontWeight: 700, margin: '0 0 0.35rem 0' }}>
+                            Found Candidate: {evalItem.found_item?.object_name || evalItem.found_title || evalItem.found_item_id}
+                          </h4>
+                          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                            <span className="badge badge-verified" style={{ fontSize: '0.82rem' }}>
+                              Composite Confidence: {scorePct}%
+                            </span>
+                            <span className="badge badge-neutral">
+                              Status: {evalItem.verification_status || 'PENDING'}
+                            </span>
                           </div>
                         </div>
 
-                        {/* Breakdown */}
-                        <div className="row g-2 text-muted small my-2 p-2 bg-light rounded">
-                          <div className="col-4">Text Similarity: {(evalItem.lexical_score * 100 || 0).toFixed(0)}%</div>
-                          <div className="col-4">Location Proximity: {(evalItem.haversine_score * 100 || 0).toFixed(0)}%</div>
-                          <div className="col-4">Visual Match: {(evalItem.vision_score * 100 || 0).toFixed(0)}%</div>
-                        </div>
-
-                        {/* Actions */}
-                        <div className="d-flex gap-2 mt-2">
-                          <button
-                            className="btn btn-sm btn-outline-primary"
-                            onClick={() => requestPhotoVerification(evalItem.lost_item_id, evalItem.found_item_id)}
-                          >
-                            <i className="bi bi-camera me-1"></i> Request Photo Verification Probe
-                          </button>
+                        <div>
+                          {evalItem.handover_passcode ? (
+                            <span className="badge badge-verified" style={{ fontSize: '1rem', padding: '0.4rem 0.8rem' }}>
+                              Passcode: {evalItem.handover_passcode}
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              className="btn btn-success btn-sm"
+                              onClick={() => generatePasscode(evalItem.id)}
+                            >
+                              <i className="bi bi-key"></i> Generate 6-Digit Passcode
+                            </button>
+                          )}
                         </div>
                       </div>
-                    ))}
-                  </div>
-                )}
+
+                      {/* Side-by-Side Photo Comparison with 4/3 Aspect Ratio */}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+                        <div>
+                          <span className="field-hint" style={{ fontWeight: 600 }}>Found Deposit Photo</span>
+                          <img
+                            src={evalItem.found_item?.primary_photo || "/uploads/placeholder.jpg"}
+                            alt="Found item"
+                            className="match-photo-preview"
+                          />
+                        </div>
+                        <div>
+                          <span className="field-hint" style={{ fontWeight: 600 }}>Verification / Reference Photo</span>
+                          <img
+                            src={evalItem.found_item?.additional_photos?.[0] || evalItem.found_item?.primary_photo || "/uploads/placeholder.jpg"}
+                            alt="Reference"
+                            className="match-photo-preview"
+                          />
+                        </div>
+                      </div>
+
+                      {/* 4-Column Responsive Grid for Breakdown Badges */}
+                      <div className="match-breakdown-grid" style={{ marginBottom: '1rem' }}>
+                        <div className="review-box" style={{ padding: '0.6rem 0.8rem' }}>
+                          <span className="field-hint">Text &amp; Brand</span>
+                          <strong>{((evalItem.text_score || evalItem.lexical_score || 0) * 100).toFixed(0)}%</strong>
+                        </div>
+                        <div className="review-box" style={{ padding: '0.6rem 0.8rem' }}>
+                          <span className="field-hint">Geo-Proximity</span>
+                          <strong>{evalItem.distance_km ? `${evalItem.distance_km} km` : 'Near'}</strong>
+                        </div>
+                        <div className="review-box" style={{ padding: '0.6rem 0.8rem' }}>
+                          <span className="field-hint">Tier-1 Vision</span>
+                          <strong>{((evalItem.visual_score || evalItem.vision_score || 0) * 100).toFixed(0)}%</strong>
+                        </div>
+                        <div className="review-box" style={{ padding: '0.6rem 0.8rem' }}>
+                          <span className="field-hint">Time Delta</span>
+                          <strong>{evalItem.time_delta_hours ? `${evalItem.time_delta_hours}h` : '< 24h'}</strong>
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        <button
+                          type="button"
+                          className="btn btn-outline btn-sm"
+                          onClick={() => requestPhotoVerification(evalItem.lost_item_id, evalItem.found_item_id)}
+                        >
+                          <i className="bi bi-camera"></i> Dispatch Photo Verification Probe
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-              <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setMatchResults(null)}>
-                  Close
-                </button>
-              </div>
+            )}
+
+            <div style={{ marginTop: '1.5rem', textAlign: 'right' }}>
+              <button type="button" className="btn btn-outline" onClick={() => setMatchResults(null)}>
+                Close Inspector
+              </button>
             </div>
           </div>
         </div>

@@ -222,18 +222,21 @@ def init_db():
     )
     """)
 
-    # 10. audit_logs
+    # 11. notifications
     cursor.execute("""
-    CREATE TABLE IF NOT EXISTS audit_logs (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        timestamp TEXT NOT NULL,
-        actor_role TEXT NOT NULL,
-        actor_id TEXT NOT NULL,
-        action TEXT NOT NULL,
-        item_id TEXT NOT NULL,
-        details TEXT NOT NULL DEFAULT '{}'
+    CREATE TABLE IF NOT EXISTS notifications (
+        id TEXT PRIMARY KEY,
+        user_id TEXT,
+        phone TEXT,
+        type TEXT NOT NULL,
+        title TEXT NOT NULL,
+        message TEXT NOT NULL,
+        action_url TEXT,
+        is_read INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL
     )
     """)
+
 
     # Populate default verified desks if empty
     cursor.execute("SELECT COUNT(*) FROM verified_desks")

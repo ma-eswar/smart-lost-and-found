@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
+import { useToast } from '../components/Toast';
 
 const QUICK_QUESTION_TEMPLATES = [
   'What sticker, decal, or emblem is on the item?',
@@ -12,9 +13,12 @@ const QUICK_QUESTION_TEMPLATES = [
 
 export default function ReportLost() {
   const navigate = useNavigate();
+  const toast = useToast();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [geoStatus, setGeoStatus] = useState('');
+  const [isAutoFilled, setIsAutoFilled] = useState(false);
+  const [submittedItem, setSubmittedItem] = useState(null);
 
   const [formData, setFormData] = useState({
     product_name: '',
@@ -35,15 +39,38 @@ export default function ReportLost() {
     owner_phone: '',
     backup_contact: '',
     owner_email: '',
-    institutional_id: ''
+    institutional_id: '',
+    residential_address: 'Campus Hostel Block C'
   });
+
+  // Auto-fill profile details if available in localStorage
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('user') || localStorage.getItem('saved_profile');
+      if (stored) {
+        const user = JSON.parse(stored);
+        if (user.full_name || user.phone || user.email) {
+          setFormData(prev => ({
+            ...prev,
+            owner_name: user.full_name || user.name || prev.owner_name,
+            owner_phone: user.phone || prev.owner_phone,
+            owner_email: user.email || prev.owner_email,
+            institutional_id: user.institutional_id || user.roll_no || prev.institutional_id,
+            residential_address: user.address || prev.residential_address
+          }));
+          setIsAutoFilled(true);
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  // Handlers for dynamic confirmation points (up to 3)
   const handlePointChange = (index, field, value) => {
     setFormData(prev => {
       const updated = [...prev.confirmation_points];
@@ -54,7 +81,7 @@ export default function ReportLost() {
 
   const addPoint = () => {
     if (formData.confirmation_points.length >= 3) {
-      alert('You can add up to 3 confirmation details / questions.');
+      toast.info('You can add up to 3 confirmation details or questions.');
       return;
     }
     setFormData(prev => ({
@@ -68,7 +95,7 @@ export default function ReportLost() {
 
   const removePoint = (index) => {
     if (formData.confirmation_points.length <= 1) {
-      alert('At least one confirmation detail is required.');
+      toast.info('At least one confirmation detail is required.');
       return;
     }
     setFormData(prev => ({
@@ -101,14 +128,15 @@ export default function ReportLost() {
       owner_phone: '+91 98765 43210',
       backup_contact: '+91 98765 00000 (Rohan - Roommate)',
       owner_email: 'aarav.sharma@campus.edu',
-      institutional_id: '2024CS042'
+      institutional_id: '2024CS042',
+      residential_address: 'Campus Hostel Block C'
     });
-    alert('Sample matching report loaded! Click through the steps to review and submit.');
+    toast.success('Sample report data loaded. Proceed through steps to review.');
   };
 
   const autoDetectLocation = () => {
     if (!navigator.geolocation) {
-      alert('Geolocation is not supported by your browser.');
+      toast.error('Geolocation is not supported by your browser.');
       return;
     }
     setGeoStatus('Detecting current position...');
@@ -125,13 +153,15 @@ export default function ReportLost() {
             const locName = data.display_name.split(',').slice(0, 3).join(', ');
             setFormData(prev => ({ ...prev, location: locName }));
           }
-        } catch (e) {
+        } catch {
           setFormData(prev => ({ ...prev, location: `Current Location (${lat.toFixed(4)}, ${lon.toFixed(4)})` }));
         }
         setGeoStatus('Location mapped automatically.');
+        toast.success('Location updated to your current position.');
       },
       () => {
         setGeoStatus('Standard campus coordinates retained.');
+        toast.info('Could not obtain live GPS. Standard coordinates retained.');
       }
     );
   };
@@ -149,7 +179,7 @@ export default function ReportLost() {
       }));
 
     if (validPoints.length === 0) {
-      alert('Please provide at least one ownership confirmation detail / answer.');
+      toast.error('Please provide at least one ownership confirmation detail.');
       setLoading(false);
       setStep(2);
       return;
@@ -167,7 +197,7 @@ export default function ReportLost() {
       owner_phone: formData.owner_phone.trim(),
       backup_contact: formData.backup_contact.trim(),
       owner_email: formData.owner_email.trim(),
-      residential_address: 'Campus Hostel Block C',
+      residential_address: formData.residential_address.trim() || 'Campus Hostel Block C',
       institutional_id: formData.institutional_id.trim() || 'ID-VERIFIED',
       last_seen_location: formData.location.trim(),
       latitude: formData.latitude,
@@ -177,13 +207,74 @@ export default function ReportLost() {
 
     try {
       const res = await api.createLostItem(payload);
-      alert(`Report Submitted! ID: ${res.id}\nRedirecting to your tracking dashboard.`);
-      navigate(`/status?q=${encodeURIComponent(payload.owner_phone)}`);
+      localStorage.setItem('last_user_phone', payload.owner_phone);
+      localStorage.setItem('saved_profile', JSON.stringify({
+        full_name: payload.owner_name,
+        phone: payload.owner_phone,
+        email: payload.owner_email,
+        institutional_id: payload.institutional_id,
+        address: payload.residential_address
+      }));
+      setSubmittedItem(res);
+      toast.success('Lost item report filed! Continuous background matching started.');
     } catch (err) {
-      alert(err.message || 'Failed to submit report');
+      toast.error(err);
+    } finally {
       setLoading(false);
     }
   };
+
+  // Reassurance Post-Submit Screen ("Peace of Mind")
+  if (submittedItem) {
+    return (
+      <div className="main-content" style={{ maxWidth: '680px' }}>
+        <div className="form-card reassurance-card">
+          <div className="reassurance-icon-wrapper">
+            <i className="bi bi-shield-check reassurance-icon"></i>
+          </div>
+          <span className="badge badge-verified" style={{ margin: '0.5rem auto 1rem auto' }}>
+            <i className="bi bi-radar"></i> Active Search in Progress
+          </span>
+          <h2 style={{ fontSize: '1.75rem', fontWeight: 800, marginBottom: '0.5rem' }}>
+            We've Received Your Report
+          </h2>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.98rem', maxWidth: '520px', margin: '0 auto 1.5rem auto' }}>
+            Our automated matching engine is actively scanning incoming and existing property deposits. You will receive an immediate alert and SMS when a verified match appears.
+          </p>
+
+          <div className="review-box" style={{ textAlign: 'left', margin: '0 auto 1.5rem auto' }}>
+            <div className="review-row"><span>Report ID:</span><code>{submittedItem.id}</code></div>
+            <div className="review-row"><span>Item:</span><strong>{submittedItem.product_name}</strong></div>
+            <div className="review-row"><span>Category:</span><span>{submittedItem.category}</span></div>
+            <div className="review-row"><span>Location:</span><span>{submittedItem.last_seen_location}</span></div>
+            {submittedItem.reward_amount > 0 && (
+              <div className="review-row"><span>Pledged Reward:</span><strong>₹{submittedItem.reward_amount}</strong></div>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => navigate(`/status?q=${encodeURIComponent(submittedItem.owner_phone)}`)}
+            >
+              <i className="bi bi-speedometer2"></i> Go to My Dashboard
+            </button>
+            <button
+              type="button"
+              className="btn btn-outline"
+              onClick={() => {
+                setSubmittedItem(null);
+                setStep(1);
+              }}
+            >
+              <i className="bi bi-plus-circle"></i> Report Another Item
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="main-content" style={{ maxWidth: '800px' }}>
@@ -268,7 +359,7 @@ export default function ReportLost() {
                 value={formData.reward_amount} 
                 onChange={handleChange} 
               />
-              <span className="field-hint">Held securely until you verify and collect the item at the desk.</span>
+              <span className="field-hint">Held securely in escrow until you verify and collect the item at the desk.</span>
             </div>
             <div className="wizard-actions">
               <div></div>
@@ -276,8 +367,11 @@ export default function ReportLost() {
                 type="button" 
                 className="btn btn-primary" 
                 onClick={() => {
-                  if (!formData.product_name || !formData.description) alert('Please complete the required fields');
-                  else setStep(2);
+                  if (!formData.product_name.trim() || !formData.description.trim()) {
+                    toast.error('Please provide item name and description');
+                  } else {
+                    setStep(2);
+                  }
                 }}
               >
                 Next: Ownership Proof <i className="bi bi-arrow-right"></i>
@@ -286,17 +380,17 @@ export default function ReportLost() {
           </div>
         )}
 
-        {/* Step 2: Special Ownership Confirmation Details (Up to 3 Questions) */}
+        {/* Step 2: Ownership Confirmation Details (Up to 3 Questions) */}
         {step === 2 && (
           <div className="form-card">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem' }}>
               <div>
                 <h3>Step 2: Special Ownership Confirmation Details</h3>
                 <p className="field-hint" style={{ color: 'var(--text-secondary)', marginBottom: '1rem' }}>
-                  Provide <strong>1 to 3 special identifying details or confirmation questions</strong> that only the genuine owner would know (e.g. unique scratch, stickers, lock screen wallpaper, internal pocket contents).
+                  Provide <strong>1 to 3 special identifying details or confirmation questions</strong> that only the genuine owner knows (e.g. unique scratch, stickers, lock screen wallpaper, internal pocket contents).
                   <br />
                   <span style={{ color: '#059669', fontWeight: 500 }}>
-                    <i className="bi bi-shield-lock"></i> Kept 100% confidential — never revealed to the public or finders.
+                    <i className="bi bi-shield-lock"></i> Kept 100% confidential — never revealed to finders or public.
                   </span>
                 </p>
               </div>
@@ -377,7 +471,7 @@ export default function ReportLost() {
                     required={idx === 0}
                   />
                   <span className="field-hint" style={{ fontSize: '0.78rem' }}>
-                    The finder will be asked to verify or photograph this specific area without being told what is there.
+                    The finder will be asked to verify this specific zone without disclosing what is located there.
                   </span>
                 </div>
               </div>
@@ -403,7 +497,7 @@ export default function ReportLost() {
                 className="btn btn-primary" 
                 onClick={() => {
                   if (!formData.confirmation_points[0].point.trim()) {
-                    alert('Please provide at least one ownership confirmation detail.');
+                    toast.error('Please provide at least one ownership confirmation detail.');
                   } else {
                     setStep(3);
                   }
@@ -457,8 +551,11 @@ export default function ReportLost() {
                 type="button" 
                 className="btn btn-primary" 
                 onClick={() => {
-                  if (!formData.location || !formData.last_seen_time) alert('Please provide location and estimated time');
-                  else setStep(4);
+                  if (!formData.location.trim() || !formData.last_seen_time) {
+                    toast.error('Please provide location and estimated time');
+                  } else {
+                    setStep(4);
+                  }
                 }}
               >
                 Next: Contact Info <i className="bi bi-arrow-right"></i>
@@ -471,6 +568,14 @@ export default function ReportLost() {
         {step === 4 && (
           <div className="form-card">
             <h3>Step 4: Contact Information</h3>
+
+            {isAutoFilled && (
+              <div className="autofill-banner">
+                <i className="bi bi-person-check-fill" style={{ color: 'var(--color-emerald)', fontSize: '1.1rem' }}></i>
+                <span>Auto-filled from your saved profile. You can edit these details if needed.</span>
+              </div>
+            )}
+
             <div className="form-row">
               <div className="form-group flex-1">
                 <label>Full Legal Name *</label>
@@ -497,6 +602,7 @@ export default function ReportLost() {
                 />
               </div>
             </div>
+
             <div className="form-group" style={{ background: '#fffbeb', border: '1px solid #fde68a', padding: '1rem', borderRadius: 'var(--radius-sm)' }}>
               <label style={{ color: '#92400e' }}>Alternative Contact (Friend/Roommate Phone) *</label>
               <input 
@@ -510,6 +616,7 @@ export default function ReportLost() {
               />
               <span className="field-hint" style={{ color: '#b45309' }}>Essential if your lost item is your primary phone.</span>
             </div>
+
             <div className="form-row">
               <div className="form-group flex-1">
                 <label>Email Address *</label>
@@ -536,6 +643,7 @@ export default function ReportLost() {
                 />
               </div>
             </div>
+
             <div className="wizard-actions">
               <button type="button" className="btn btn-outline" onClick={() => setStep(3)}>
                 <i className="bi bi-arrow-left"></i> Back
@@ -545,7 +653,7 @@ export default function ReportLost() {
                 className="btn btn-primary" 
                 onClick={() => {
                   if (!formData.owner_name || !formData.owner_phone || !formData.backup_contact || !formData.owner_email) {
-                    alert('Please complete all contact details');
+                    toast.error('Please complete all contact details');
                   } else {
                     setStep(5);
                   }
@@ -562,6 +670,7 @@ export default function ReportLost() {
           <div className="form-card">
             <h3>Step 5: Check Details &amp; Submit</h3>
             <p className="field-hint">Please verify that all information is accurate before submitting your report.</p>
+            
             <div className="review-box">
               <div className="review-row"><span>Item Name:</span><strong>{formData.product_name}</strong></div>
               <div className="review-row"><span>Category:</span><strong>{formData.category}</strong></div>
@@ -585,6 +694,7 @@ export default function ReportLost() {
               <div className="review-row"><span>Owner:</span><strong>{formData.owner_name} ({formData.owner_phone})</strong></div>
               <div className="review-row"><span>Alternative Contact:</span><span>{formData.backup_contact}</span></div>
             </div>
+
             <div className="wizard-actions">
               <button type="button" className="btn btn-outline" onClick={() => setStep(4)}>
                 <i className="bi bi-arrow-left"></i> Edit Details

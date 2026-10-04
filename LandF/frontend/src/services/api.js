@@ -41,6 +41,13 @@ export const api = {
     body: JSON.stringify({ phone_or_token: phoneOrToken })
   }),
 
+  // Notifications
+  getNotifications: (userIdentifier) => request(`/api/notifications/${encodeURIComponent(userIdentifier)}`),
+  markNotificationRead: (notifId) => request(`/api/notifications/${encodeURIComponent(notifId)}/read`, { method: 'POST' }),
+
+  // User Financial & Overview Metrics
+  getUserMetrics: (userIdentifier) => request(`/api/users/${encodeURIComponent(userIdentifier)}/metrics`),
+
   // Matching Engine
   evaluateMatches: (lostItemId, pin = 'admin123') => request(`/api/matching/evaluate/${lostItemId}`, {
     method: 'POST',

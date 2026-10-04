@@ -3,9 +3,12 @@ from fastapi import APIRouter, HTTPException
 from app.database import get_db_connection
 from app.schemas import StatusLookupRequest
 
-router = APIRouter(prefix="/api/user-status", tags=["User Status"])
+router = APIRouter(tags=["User Status & Notifications"])
 
-@router.post("/lookup")
+# -------------------------------------------------------------
+# 1. SUBMISSION LOOKUP
+# -------------------------------------------------------------
+@router.post("/api/user-status/lookup")
 def lookup_user_submissions(payload: StatusLookupRequest):
     query = payload.phone_or_token.strip()
     if not query:
@@ -14,7 +17,7 @@ def lookup_user_submissions(payload: StatusLookupRequest):
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # 1. Search lost items matching phone OR access_token OR id OR user_id
+    # Search lost items matching phone OR access_token OR id OR user_id
     cursor.execute("""
     SELECT * FROM lost_items 
     WHERE owner_phone = ? OR access_token = ? OR id = ? OR user_id = ?
@@ -22,7 +25,7 @@ def lookup_user_submissions(payload: StatusLookupRequest):
     """, (query, query, query, query))
     lost_rows = cursor.fetchall()
     
-    # 2. Search found items matching phone OR access_token OR id OR receipt_id OR user_id
+    # Search found items matching phone OR access_token OR id OR receipt_id OR user_id
     cursor.execute("""
     SELECT * FROM found_items 
     WHERE finder_phone = ? OR access_token = ? OR id = ? OR desk_intake_receipt_id = ? OR user_id = ?
@@ -32,7 +35,6 @@ def lookup_user_submissions(payload: StatusLookupRequest):
     
     formatted_lost = []
     for row in lost_rows:
-        # Check if match evaluation has authorized passcode
         cursor.execute("""
         SELECT passcode, is_used, expires_at 
         FROM release_authorizations 
@@ -71,7 +73,6 @@ def lookup_user_submissions(payload: StatusLookupRequest):
         
     formatted_found = []
     for row in found_rows:
-        # Query any verification probes for this found item
         cursor.execute("""
         SELECT id, found_item_id, target_area, neutral_prompt, finder_response_photo,
                probe_status, created_at
@@ -118,4 +119,114 @@ def lookup_user_submissions(payload: StatusLookupRequest):
         "query": query,
         "lost_items": formatted_lost,
         "found_items": formatted_found
+    }
+
+
+# -------------------------------------------------------------
+# 2. IN-APP NOTIFICATIONS
+# -------------------------------------------------------------
+@router.get("/api/notifications/{user_identifier}")
+def get_user_notifications(user_identifier: str):
+    """
+    Returns notifications for the given user_id or phone number.
+    """
+    ident = user_identifier.strip()
+    if not ident:
+        return []
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+    SELECT * FROM notifications 
+    WHERE user_id = ? OR phone = ?
+    ORDER BY created_at DESC LIMIT 30
+    """, (ident, ident))
+    rows = cursor.fetchall()
+    conn.close()
+
+    notifications = []
+    for r in rows:
+        notifications.append({
+            "id": r["id"],
+            "user_id": r["user_id"],
+            "phone": r["phone"],
+            "type": r["type"],
+            "title": r["title"],
+            "message": r["message"],
+            "action_url": r["action_url"],
+            "is_read": bool(r["is_read"]),
+            "created_at": r["created_at"]
+        })
+    return notifications
+
+
+@router.post("/api/notifications/{notification_id}/read")
+def mark_notification_read(notification_id: str):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE notifications SET is_read = 1 WHERE id = ?", (notification_id,))
+    conn.commit()
+    conn.close()
+    return {"success": True, "id": notification_id}
+
+
+# -------------------------------------------------------------
+# 3. FINANCIAL METRICS & USER METRICS
+# -------------------------------------------------------------
+@router.get("/api/users/{user_id}/metrics")
+def get_user_financial_metrics(user_id: str):
+    """
+    Returns:
+    - rewards_earned: sum of disbursed rewards for items found by this user.
+    - money_spent: sum of escrow rewards released for their recovered lost items.
+    - active_lost_count: currently active lost items.
+    - active_found_count: currently active found items.
+    """
+    ident = user_id.strip()
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # 1. Rewards earned by this finder (where escrow is DISBURSED or RELEASED)
+    # Check by user_id OR by finder_phone/email
+    cursor.execute("""
+    SELECT COALESCE(SUM(e.amount), 0.0) as total_earned
+    FROM escrow_records e
+    JOIN found_items f ON e.found_item_id = f.id
+    WHERE (f.user_id = ? OR f.finder_phone = ?) AND e.status IN ('DISBURSED', 'RELEASED')
+    """, (ident, ident))
+    row_earned = cursor.fetchone()
+    rewards_earned = float(row_earned["total_earned"]) if row_earned else 0.0
+
+    # 2. Money spent by owner on recovered lost items (where escrow was DISBURSED/RELEASED)
+    cursor.execute("""
+    SELECT COALESCE(SUM(e.amount), 0.0) as total_spent
+    FROM escrow_records e
+    JOIN lost_items l ON e.lost_item_id = l.id
+    WHERE (l.user_id = ? OR l.owner_phone = ?) AND e.status IN ('DISBURSED', 'RELEASED')
+    """, (ident, ident))
+    row_spent = cursor.fetchone()
+    money_spent = float(row_spent["total_spent"]) if row_spent else 0.0
+
+    # 3. Active lost items count
+    cursor.execute("""
+    SELECT COUNT(*) as cnt FROM lost_items 
+    WHERE (user_id = ? OR owner_phone = ?) AND status NOT IN ('RESOLVED', 'ARCHIVED')
+    """, (ident, ident))
+    active_lost_count = cursor.fetchone()["cnt"]
+
+    # 4. Active found items count
+    cursor.execute("""
+    SELECT COUNT(*) as cnt FROM found_items 
+    WHERE (user_id = ? OR finder_phone = ?) AND status NOT IN ('RESOLVED', 'ARCHIVED')
+    """, (ident, ident))
+    active_found_count = cursor.fetchone()["cnt"]
+
+    conn.close()
+
+    return {
+        "user_id": ident,
+        "rewards_earned": rewards_earned,
+        "money_spent": money_spent,
+        "active_lost_count": active_lost_count,
+        "active_found_count": active_found_count
     }

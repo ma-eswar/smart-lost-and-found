@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../services/api';
+import { useToast } from '../components/Toast';
 
 export default function Archived() {
+  const toast = useToast();
   const [archivedRecords, setArchivedRecords] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
 
   const adminPin = localStorage.getItem('admin_pin') || 'admin123';
@@ -16,12 +17,11 @@ export default function Archived() {
 
   const fetchArchived = async () => {
     setLoading(true);
-    setError('');
     try {
       const data = await api.getArchivedItems(adminPin);
       setArchivedRecords(data.archived_items || []);
     } catch (err) {
-      setError('Failed to load archived records: ' + err.message);
+      toast.error(err);
     } finally {
       setLoading(false);
     }
@@ -40,133 +40,117 @@ export default function Archived() {
   });
 
   return (
-    <div className="container py-4">
+    <div className="main-content" style={{ maxWidth: '1140px' }}>
       {/* Header */}
-      <div className="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom">
+      <div className="admin-header-bar">
         <div>
-          <h2 className="fw-bold mb-1">
-            <i className="bi bi-archive text-secondary me-2"></i>
-            Archived Records & Resolved Handovers
+          <h2 style={{ fontSize: '1.75rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <i className="bi bi-archive" style={{ color: 'var(--text-secondary)' }}></i>
+            Archived Records &amp; Resolved Handovers
           </h2>
-          <p className="text-muted mb-0 small">
-            Permanent, tamper-evident audit history of all successfully returned lost & found items and escrow payouts.
-          </p>
+          <span className="field-hint" style={{ color: 'var(--text-secondary)' }}>
+            Permanent audit history of all verified returned property and escrow payouts.
+          </span>
         </div>
-        <div className="d-flex gap-2">
-          <button className="btn btn-outline-primary btn-sm" onClick={fetchArchived} disabled={loading}>
-            <i className="bi bi-arrow-clockwise me-1"></i> Refresh
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <button type="button" className="btn btn-outline btn-sm" onClick={fetchArchived} disabled={loading}>
+            <i className="bi bi-arrow-clockwise"></i> Refresh
           </button>
           <Link to="/admin" className="btn btn-primary btn-sm">
-            <i className="bi bi-person-badge me-1"></i> Staff Portal
+            <i className="bi bi-person-badge"></i> Staff Portal
           </Link>
         </div>
       </div>
 
-      {error && (
-        <div className="alert alert-danger py-2 small mb-4">{error}</div>
-      )}
-
       {/* Search Filter */}
-      <div className="card border-0 shadow-sm mb-4 p-3 bg-light">
-        <div className="row g-2 align-items-center">
-          <div className="col-md-6">
-            <div className="input-group">
-              <span className="input-group-text bg-white border-end-0">
-                <i className="bi bi-search text-muted"></i>
-              </span>
-              <input
-                type="text"
-                className="form-control border-start-0"
-                placeholder="Search by item title, claimant, finder, or category..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
+      <div className="form-card" style={{ marginBottom: '1.5rem', padding: '1.25rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+          <div style={{ flex: 1, minWidth: '260px' }}>
+            <input
+              type="text"
+              className="form-control"
+              placeholder="Search by item title, claimant, finder, or category..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
           </div>
-          <div className="col-md-6 text-md-end text-muted small">
-            Showing <strong>{filtered.length}</strong> of <strong>{archivedRecords.length}</strong> archived items
-          </div>
+          <span className="field-hint">
+            Showing <strong>{filtered.length}</strong> of <strong>{archivedRecords.length}</strong> records
+          </span>
         </div>
       </div>
 
-      {/* Archive List */}
-      <div className="card border-0 shadow-sm">
-        <div className="card-body p-0">
-          {loading ? (
-            <div className="text-center py-5">
-              <div className="spinner-border text-primary" role="status"></div>
-              <p className="text-muted small mt-2">Loading archived handovers...</p>
-            </div>
-          ) : filtered.length === 0 ? (
-            <div className="text-center py-5 text-muted">
-              <i className="bi bi-inbox fs-1 d-block mb-3 text-secondary"></i>
-              <h5 className="fw-bold">No Archived Records Found</h5>
-              <p className="small mb-0">
-                {searchTerm ? 'No matches found for your search filter.' : 'When lost items are handed over and verified via 6-digit passcode, they will appear here.'}
-              </p>
-            </div>
-          ) : (
-            <div className="table-responsive">
-              <table className="table table-hover align-middle mb-0">
-                <thead className="table-light small">
-                  <tr>
-                    <th>Item Title & Category</th>
-                    <th>Claimant (Owner)</th>
-                    <th>Finder Details</th>
-                    <th>Handover Desk</th>
-                    <th>Reward Payout</th>
-                    <th>Archived Timestamp</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map((item, idx) => (
-                    <tr key={item.lost_item_id || idx}>
-                      <td>
-                        <div className="fw-bold">{item.lost_title || item.found_title || 'Item #' + (item.lost_item_id || item.found_item_id)}</div>
-                        <div className="d-flex gap-1 align-items-center mt-1">
-                          <span className="badge bg-light text-dark">{item.category || 'General'}</span>
-                          {item.lost_item_id && <small className="text-muted">ID: {item.lost_item_id}</small>}
-                        </div>
-                      </td>
-                      <td>
-                        <div className="fw-semibold">{item.claimant_name || 'Verified Owner'}</div>
-                        <small className="text-muted">{item.claimant_phone || 'Private'}</small>
-                      </td>
-                      <td>
-                        <div className="fw-semibold">{item.finder_name || 'Anonymous Finder'}</div>
-                        {item.finder_upi && <small className="text-muted">UPI: {item.finder_upi}</small>}
-                      </td>
-                      <td>
-                        <span className="badge bg-secondary">
-                          <i className="bi bi-geo-alt me-1"></i>
-                          {item.desk_id || 'Main Campus Desk'}
-                        </span>
-                        {item.officer_name && <small className="d-block text-muted">By: {item.officer_name}</small>}
-                      </td>
-                      <td>
-                        {item.escrow_amount ? (
-                          <span className="badge bg-success">Rs. {item.escrow_amount} Paid</span>
-                        ) : (
-                          <span className="text-muted small">None</span>
-                        )}
-                      </td>
-                      <td className="small text-muted">
-                        <i className="bi bi-clock-history me-1"></i>
-                        {item.archived_at ? new Date(item.archived_at).toLocaleString() : 'Recently'}
-                      </td>
-                      <td>
-                        <span className="badge bg-dark">
-                          <i className="bi bi-check2-all me-1"></i> ARCHIVED
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+      {/* Archive Table */}
+      <div className="admin-table-wrapper">
+        {loading ? (
+          <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+            <i className="bi bi-hourglass-split" style={{ fontSize: '1.8rem', display: 'block', marginBottom: '0.5rem' }}></i>
+            Loading archived handovers...
+          </div>
+        ) : filtered.length === 0 ? (
+          <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+            <i className="bi bi-inbox" style={{ fontSize: '2.5rem', display: 'block', marginBottom: '0.5rem', color: 'var(--color-slate-400)' }}></i>
+            <h4 style={{ margin: '0.5rem 0 0.25rem 0' }}>No Archived Records Found</h4>
+            <p className="field-hint">
+              {searchTerm ? 'No matches found for your filter.' : 'When property is verified and collected with 6-digit passcodes, records will appear here.'}
+            </p>
+          </div>
+        ) : (
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>Item Title &amp; Category</th>
+                <th>Claimant (Owner)</th>
+                <th>Finder Details</th>
+                <th>Handover Desk</th>
+                <th>Reward Payout</th>
+                <th>Archived Time</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((item, idx) => (
+                <tr key={item.lost_item_id || idx}>
+                  <td>
+                    <strong>{item.lost_title || item.found_title || 'Item #' + (item.lost_item_id || item.found_item_id)}</strong>
+                    <span className="badge badge-neutral" style={{ display: 'block', width: 'fit-content', marginTop: '0.2rem', fontSize: '0.72rem' }}>
+                      {item.category || 'General'}
+                    </span>
+                  </td>
+                  <td>
+                    <div>{item.claimant_name || 'Verified Owner'}</div>
+                    <span className="field-hint">{item.claimant_phone || 'Private'}</span>
+                  </td>
+                  <td>
+                    <div>{item.finder_name || 'Anonymous Finder'}</div>
+                    {item.finder_upi && <code style={{ fontSize: '0.75rem' }}>UPI: {item.finder_upi}</code>}
+                  </td>
+                  <td>
+                    <span className="badge badge-neutral">
+                      <i className="bi bi-geo-alt"></i> {item.desk_id || 'Campus Desk'}
+                    </span>
+                    {item.officer_name && <span className="field-hint" style={{ display: 'block' }}>By: {item.officer_name}</span>}
+                  </td>
+                  <td>
+                    {item.escrow_amount ? (
+                      <span className="badge badge-verified">₹{item.escrow_amount} Paid</span>
+                    ) : (
+                      <span className="field-hint">None</span>
+                    )}
+                  </td>
+                  <td className="field-hint">
+                    {item.archived_at ? new Date(item.archived_at).toLocaleString() : 'Recently'}
+                  </td>
+                  <td>
+                    <span className="badge badge-neutral">
+                      <i className="bi bi-check2-all"></i> RESOLVED
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );

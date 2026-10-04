@@ -1,16 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
+import { useToast } from '../components/Toast';
 
-const DEFAULT_SAMPLE_PHOTO = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='300'><rect width='400' height='300' fill='%23334155'/><text x='200' y='150' fill='%23fff' text-anchor='middle'>Found MacBook</text></svg>";
+const DEFAULT_SAMPLE_PHOTO = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='300'><rect width='400' height='300' fill='%23334155'/><text x='200' y='150' fill='%23fff' text-anchor='middle'>Found Item Photo</text></svg>";
 
 export default function ReportFound() {
   const navigate = useNavigate();
+  const toast = useToast();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [desks, setDesks] = useState([]);
   const [geoStatus, setGeoStatus] = useState('');
   const [custodyMode, setCustodyMode] = useState('desk'); // 'desk' or 'direct'
+  const [isAutoFilled, setIsAutoFilled] = useState(false);
+  const [submittedItem, setSubmittedItem] = useState(null);
 
   const [formData, setFormData] = useState({
     desk_id: 'DESK-LIB-02',
@@ -36,6 +40,27 @@ export default function ReportFound() {
         setFormData(prev => ({ ...prev, desk_id: data[0].id }));
       }
     }).catch(console.error);
+
+    // Profile auto-fill from localStorage
+    try {
+      const stored = localStorage.getItem('user') || localStorage.getItem('saved_profile');
+      if (stored) {
+        const user = JSON.parse(stored);
+        if (user.full_name || user.phone || user.email) {
+          setFormData(prev => ({
+            ...prev,
+            finder_name: user.full_name || user.name || prev.finder_name,
+            finder_phone: user.phone || prev.finder_phone,
+            finder_email: user.email || prev.finder_email,
+            finder_roll_or_id: user.institutional_id || user.roll_no || prev.finder_roll_or_id,
+            finder_upi_id: user.upi_id || prev.finder_upi_id
+          }));
+          setIsAutoFilled(true);
+        }
+      }
+    } catch {
+      // ignore
+    }
   }, []);
 
   const handleChange = (e) => {
@@ -49,6 +74,7 @@ export default function ReportFound() {
     const reader = new FileReader();
     reader.onload = (evt) => {
       setFormData(prev => ({ ...prev, primary_photo: evt.target.result }));
+      toast.success('Photo attached successfully.');
     };
     reader.readAsDataURL(file);
   };
@@ -71,12 +97,12 @@ export default function ReportFound() {
       finder_upi_id: 'rahul@okaxis',
       finder_roll_or_id: '2024CS042'
     });
-    alert('Sample matching found report loaded! Click through steps to review and submit.');
+    toast.success('Sample found item data loaded. Proceed through steps to review.');
   };
 
   const autoDetectLocation = () => {
     if (!navigator.geolocation) {
-      alert('Geolocation is not supported by your browser.');
+      toast.error('Geolocation is not supported by your browser.');
       return;
     }
     setGeoStatus('Detecting current position...');
@@ -93,13 +119,15 @@ export default function ReportFound() {
             const locName = data.display_name.split(',').slice(0, 3).join(', ');
             setFormData(prev => ({ ...prev, location: locName }));
           }
-        } catch (e) {
+        } catch {
           setFormData(prev => ({ ...prev, location: `Current Location (${lat.toFixed(4)}, ${lon.toFixed(4)})` }));
         }
         setGeoStatus('Location mapped automatically.');
+        toast.success('Location updated to your current position.');
       },
       () => {
         setGeoStatus('Standard coordinates retained.');
+        toast.info('Could not obtain live GPS. Standard coordinates retained.');
       }
     );
   };
@@ -132,13 +160,65 @@ export default function ReportFound() {
       const res = isDesk 
         ? await api.createDeskFoundItem(payload)
         : await api.createDirectFoundItem(payload);
-      alert(`Found item registered! ID: ${res.id}\nRedirecting to tracking dashboard.`);
-      navigate(`/status?q=${encodeURIComponent(payload.finder_phone)}`);
+      
+      localStorage.setItem('last_user_phone', payload.finder_phone);
+      setSubmittedItem(res);
+      toast.success('Found property registered! Continuous reverse matching initiated.');
     } catch (err) {
-      alert(err.message || 'Submission failed');
+      toast.error(err);
+    } finally {
       setLoading(false);
     }
   };
+
+  // Reassurance Post-Submit Screen ("Peace of Mind")
+  if (submittedItem) {
+    return (
+      <div className="main-content" style={{ maxWidth: '680px' }}>
+        <div className="form-card reassurance-card">
+          <div className="reassurance-icon-wrapper" style={{ background: '#ecfdf5', borderColor: '#a7f3d0' }}>
+            <i className="bi bi-box-seam reassurance-icon" style={{ color: 'var(--color-emerald)' }}></i>
+          </div>
+          <span className="badge badge-verified" style={{ margin: '0.5rem auto 1rem auto' }}>
+            <i className="bi bi-check-circle"></i> Intake Successfully Logged
+          </span>
+          <h2 style={{ fontSize: '1.75rem', fontWeight: 800, marginBottom: '0.5rem' }}>
+            Thank You for Doing the Right Thing!
+          </h2>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.98rem', maxWidth: '520px', margin: '0 auto 1.5rem auto' }}>
+            Your deposit is recorded. If an escrow cash reward was pledged by the owner, it will transfer directly to your UPI (<code>{submittedItem.finder_upi_id}</code>) upon verified physical handover.
+          </p>
+
+          <div className="review-box" style={{ textAlign: 'left', margin: '0 auto 1.5rem auto' }}>
+            <div className="review-row"><span>Deposit ID:</span><code>{submittedItem.id}</code></div>
+            <div className="review-row"><span>Item:</span><strong>{submittedItem.object_name}</strong></div>
+            <div className="review-row"><span>Custody Mode:</span><span>{submittedItem.submission_type}</span></div>
+            <div className="review-row"><span>Reward Account:</span><span><code>{submittedItem.finder_upi_id}</code></span></div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => navigate(`/status?q=${encodeURIComponent(submittedItem.finder_phone)}`)}
+            >
+              <i className="bi bi-speedometer2"></i> View in Tracking Dashboard
+            </button>
+            <button
+              type="button"
+              className="btn btn-outline"
+              onClick={() => {
+                setSubmittedItem(null);
+                setStep(1);
+              }}
+            >
+              <i className="bi bi-plus-circle"></i> Report Another Item
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="main-content" style={{ maxWidth: '800px' }}>
@@ -148,7 +228,7 @@ export default function ReportFound() {
           <h1 style={{ fontSize: '1.8rem', marginTop: '0.25rem' }}>Report a Found Item</h1>
         </div>
         <button type="button" className="btn btn-outline btn-sm" onClick={autofillSample}>
-          <i className="bi bi-magic"></i> Autofill Sample: MacBook Pro 14
+          <i className="bi bi-magic"></i> Autofill Sample: Found MacBook
         </button>
       </div>
 
@@ -158,10 +238,10 @@ export default function ReportFound() {
           <div className="wizard-progress-fill" style={{ width: `${((step - 1) / 4) * 100}%` }}></div>
         </div>
         {[
-          { num: 1, label: 'Custody Mode' },
-          { num: 2, label: 'Item Details' },
-          { num: 3, label: 'Location' },
-          { num: 4, label: 'Finder & Reward' },
+          { num: 1, label: 'Item & Photo' },
+          { num: 2, label: 'Custody Option' },
+          { num: 3, label: 'Location & Time' },
+          { num: 4, label: 'Finder Details' },
           { num: 5, label: 'Review & Submit' }
         ].map(n => (
           <div key={n.num} className={`wizard-step-node ${step === n.num ? 'active' : (step > n.num ? 'completed' : '')}`}>
@@ -172,61 +252,18 @@ export default function ReportFound() {
       </div>
 
       <form onSubmit={handleSubmit}>
-        {/* Step 1: Custody Mode */}
+        {/* Step 1: Item Details & Primary Photo */}
         {step === 1 && (
           <div className="form-card">
-            <h3>Step 1: Where is the Item Right Now?</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem', marginTop: '0.5rem' }}>
-              <div 
-                className="form-card" 
-                style={{ cursor: 'pointer', border: custodyMode === 'desk' ? '2px solid #18181b' : '1px solid var(--border-light)' }} 
-                onClick={() => setCustodyMode('desk')}
-              >
-                <strong><i className="bi bi-building"></i> Path A: Deposited at Security Desk</strong>
-                <p className="field-hint">You dropped it off with a duty officer at an official campus desk.</p>
-              </div>
-              <div 
-                className="form-card" 
-                style={{ cursor: 'pointer', border: custodyMode === 'direct' ? '2px solid #18181b' : '1px solid var(--border-light)' }} 
-                onClick={() => setCustodyMode('direct')}
-              >
-                <strong><i className="bi bi-person-check"></i> Path B: Keeping with Myself</strong>
-                <p className="field-hint">You have the item in your possession until true owner verifies.</p>
-              </div>
-            </div>
-
-            {custodyMode === 'desk' && (
-              <div className="form-group" style={{ marginTop: '1rem' }}>
-                <label>Select Campus Custody Desk *</label>
-                <select name="desk_id" className="form-control" value={formData.desk_id} onChange={handleChange}>
-                  {desks.map(d => (
-                    <option key={d.id} value={d.id}>{d.name} ({d.building_or_zone})</option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            <div className="wizard-actions">
-              <div></div>
-              <button type="button" className="btn btn-primary" onClick={() => setStep(2)}>
-                Next: Item Details <i className="bi bi-arrow-right"></i>
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Step 2: Item Details & Photo */}
-        {step === 2 && (
-          <div className="form-card">
-            <h3>Step 2: Item Information &amp; Photo</h3>
+            <h3>Step 1: Item Information &amp; Photo</h3>
             <div className="form-row">
               <div className="form-group flex-2">
-                <label>Item Name *</label>
+                <label>Item Name / Description *</label>
                 <input 
                   type="text" 
                   name="object_name" 
                   className="form-control" 
-                  placeholder="e.g. MacBook Pro 14 Laptop in Dark Cover" 
+                  placeholder="e.g. MacBook Pro 14 Laptop in Dark Protective Cover" 
                   value={formData.object_name} 
                   onChange={handleChange} 
                   required 
@@ -244,49 +281,111 @@ export default function ReportFound() {
                 </select>
               </div>
             </div>
+
             <div className="form-group">
-              <label>Visible Description *</label>
+              <label>General Description *</label>
               <textarea 
                 name="description" 
                 className="form-control" 
                 rows="3" 
-                placeholder="Describe visible exterior traits..." 
+                placeholder="Describe visible condition, exterior brand, color, where it was resting..." 
                 value={formData.description} 
                 onChange={handleChange} 
                 required 
               />
             </div>
+
             <div className="form-group">
-              <label>Photo of the Item</label>
+              <label>Primary Overview Photo *</label>
               <input type="file" accept="image/*" className="form-control" onChange={handlePhotoUpload} />
               {formData.primary_photo && (
-                <div style={{ marginTop: '0.5rem' }}>
-                  <img src={formData.primary_photo} alt="Preview" style={{ maxHeight: '100px', borderRadius: '4px', border: '1px solid var(--border-light)' }} />
+                <div style={{ marginTop: '0.75rem', textAlign: 'center' }}>
+                  <img 
+                    src={formData.primary_photo} 
+                    alt="Found item preview" 
+                    style={{ maxHeight: '180px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-light)' }} 
+                  />
                 </div>
               )}
             </div>
+
             <div className="wizard-actions">
-              <button type="button" className="btn btn-outline" onClick={() => setStep(1)}>
-                <i className="bi bi-arrow-left"></i> Back
-              </button>
+              <div></div>
               <button 
                 type="button" 
                 className="btn btn-primary" 
                 onClick={() => {
-                  if (!formData.object_name || !formData.description) alert('Please complete required fields');
-                  else setStep(3);
+                  if (!formData.object_name.trim() || !formData.description.trim()) {
+                    toast.error('Please enter item name and description');
+                  } else {
+                    setStep(2);
+                  }
                 }}
               >
-                Next: Location <i className="bi bi-arrow-right"></i>
+                Next: Custody Option <i className="bi bi-arrow-right"></i>
               </button>
             </div>
           </div>
         )}
 
-        {/* Step 3: Location Found */}
+        {/* Step 2: Custody Option */}
+        {step === 2 && (
+          <div className="form-card">
+            <h3>Step 2: Physical Custody Method</h3>
+            <p className="field-hint">Choose where the item will be held during owner matching and handover.</p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem', margin: '1rem 0' }}>
+              <div 
+                className={`form-card ${custodyMode === 'desk' ? 'selected-card' : ''}`}
+                style={{ cursor: 'pointer', border: custodyMode === 'desk' ? '2px solid var(--color-primary)' : '1px solid var(--border-light)' }}
+                onClick={() => setCustodyMode('desk')}
+              >
+                <div style={{ fontSize: '1.8rem', color: 'var(--color-primary)' }}><i className="bi bi-building-check"></i></div>
+                <h4 style={{ margin: '0.5rem 0 0.25rem 0' }}>Official Security Desk</h4>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                  Safely deposit the item at a 24/7 campus security desk. Duty officer coordinates physical return.
+                </p>
+              </div>
+
+              <div 
+                className={`form-card ${custodyMode === 'direct' ? 'selected-card' : ''}`}
+                style={{ cursor: 'pointer', border: custodyMode === 'direct' ? '2px solid var(--color-primary)' : '1px solid var(--border-light)' }}
+                onClick={() => setCustodyMode('direct')}
+              >
+                <div style={{ fontSize: '1.8rem', color: '#059669' }}><i className="bi bi-person-badge"></i></div>
+                <h4 style={{ margin: '0.5rem 0 0.25rem 0' }}>Keep in My Custody</h4>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                  Retain the item with you. You will meet the owner at an official desk only once match is confirmed.
+                </p>
+              </div>
+            </div>
+
+            {custodyMode === 'desk' && (
+              <div className="form-group" style={{ marginTop: '1rem' }}>
+                <label>Select Partner Security Desk *</label>
+                <select name="desk_id" className="form-control" value={formData.desk_id} onChange={handleChange} required>
+                  {desks.map(d => (
+                    <option key={d.id} value={d.id}>{d.name} ({d.building_or_zone})</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <div className="wizard-actions">
+              <button type="button" className="btn btn-outline" onClick={() => setStep(1)}>
+                <i className="bi bi-arrow-left"></i> Back
+              </button>
+              <button type="button" className="btn btn-primary" onClick={() => setStep(3)}>
+                Next: Location &amp; Time <i className="bi bi-arrow-right"></i>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Step 3: Location & Time */}
         {step === 3 && (
           <div className="form-card">
-            <h3>Step 3: Where Did You Find It?</h3>
+            <h3>Step 3: Where &amp; When Did You Find It?</h3>
             <div className="form-group">
               <label>Found Location / Landmark *</label>
               <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
@@ -295,7 +394,7 @@ export default function ReportFound() {
                   name="location" 
                   className="form-control" 
                   style={{ flex: 1, minWidth: '240px' }} 
-                  placeholder="e.g. Central Library Study Section" 
+                  placeholder="e.g. Central Library Study Section Table 12" 
                   value={formData.location} 
                   onChange={handleChange} 
                   required 
@@ -306,8 +405,9 @@ export default function ReportFound() {
               </div>
               {geoStatus && <span className="field-hint" style={{ color: 'var(--color-emerald)' }}>{geoStatus}</span>}
             </div>
+
             <div className="form-group">
-              <label>Found Date &amp; Time *</label>
+              <label>Date &amp; Time Found *</label>
               <input 
                 type="datetime-local" 
                 name="found_time" 
@@ -317,6 +417,7 @@ export default function ReportFound() {
                 required 
               />
             </div>
+
             <div className="wizard-actions">
               <button type="button" className="btn btn-outline" onClick={() => setStep(2)}>
                 <i className="bi bi-arrow-left"></i> Back
@@ -325,11 +426,14 @@ export default function ReportFound() {
                 type="button" 
                 className="btn btn-primary" 
                 onClick={() => {
-                  if (!formData.location || !formData.found_time) alert('Please provide location and time');
-                  else setStep(4);
+                  if (!formData.location.trim()) {
+                    toast.error('Please provide the found location');
+                  } else {
+                    setStep(4);
+                  }
                 }}
               >
-                Next: Finder &amp; Reward <i className="bi bi-arrow-right"></i>
+                Next: Finder Details <i className="bi bi-arrow-right"></i>
               </button>
             </div>
           </div>
@@ -338,7 +442,15 @@ export default function ReportFound() {
         {/* Step 4: Finder Details & Reward UPI */}
         {step === 4 && (
           <div className="form-card">
-            <h3>Step 4: Your Contact &amp; Reward Info</h3>
+            <h3>Step 4: Finder Information &amp; UPI Reward</h3>
+            
+            {isAutoFilled && (
+              <div className="autofill-banner">
+                <i className="bi bi-person-check-fill" style={{ color: 'var(--color-emerald)', fontSize: '1.1rem' }}></i>
+                <span>Auto-filled from your saved profile. You can edit these details if needed.</span>
+              </div>
+            )}
+
             <div className="form-row">
               <div className="form-group flex-1">
                 <label>Your Full Name *</label>
@@ -353,7 +465,7 @@ export default function ReportFound() {
                 />
               </div>
               <div className="form-group flex-1">
-                <label>Contact Phone Number *</label>
+                <label>Phone Number *</label>
                 <input 
                   type="tel" 
                   name="finder_phone" 
@@ -365,6 +477,7 @@ export default function ReportFound() {
                 />
               </div>
             </div>
+
             <div className="form-row">
               <div className="form-group flex-1">
                 <label>Email Address *</label>
@@ -379,18 +492,34 @@ export default function ReportFound() {
                 />
               </div>
               <div className="form-group flex-1">
-                <label>Your UPI ID for Reward *</label>
+                <label>Campus Roll / Govt ID</label>
                 <input 
                   type="text" 
-                  name="finder_upi_id" 
+                  name="finder_roll_or_id" 
                   className="form-control" 
-                  placeholder="rahul@okaxis" 
-                  value={formData.finder_upi_id} 
+                  placeholder="2024CS042" 
+                  value={formData.finder_roll_or_id} 
                   onChange={handleChange} 
-                  required 
                 />
               </div>
             </div>
+
+            <div className="form-group" style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '1rem', borderRadius: 'var(--radius-sm)' }}>
+              <label style={{ color: '#166534' }}>UPI ID for Escrow Cash Reward Payout *</label>
+              <input 
+                type="text" 
+                name="finder_upi_id" 
+                className="form-control" 
+                placeholder="e.g. rahul@okaxis, 9876543210@paytm" 
+                value={formData.finder_upi_id} 
+                onChange={handleChange} 
+                required 
+              />
+              <span className="field-hint" style={{ color: '#15803d' }}>
+                If the owner pledged a reward, funds transfer directly to this UPI upon verified physical return.
+              </span>
+            </div>
+
             <div className="wizard-actions">
               <button type="button" className="btn btn-outline" onClick={() => setStep(3)}>
                 <i className="bi bi-arrow-left"></i> Back
@@ -400,7 +529,7 @@ export default function ReportFound() {
                 className="btn btn-primary" 
                 onClick={() => {
                   if (!formData.finder_name || !formData.finder_phone || !formData.finder_upi_id) {
-                    alert('Please complete contact & reward info');
+                    toast.error('Please provide finder name, phone, and UPI ID');
                   } else {
                     setStep(5);
                   }
@@ -415,21 +544,22 @@ export default function ReportFound() {
         {/* Step 5: Review & Submit */}
         {step === 5 && (
           <div className="form-card">
-            <h3>Step 5: Review &amp; Submit</h3>
+            <h3>Step 5: Confirm Deposit Details</h3>
             <div className="review-box">
-              <div className="review-row"><span>Custody Mode:</span><strong>{custodyMode === 'desk' ? 'Campus Security Desk' : 'Personal Custody'}</strong></div>
-              <div className="review-row"><span>Item Name:</span><strong>{formData.object_name}</strong></div>
+              <div className="review-row"><span>Item:</span><strong>{formData.object_name}</strong></div>
               <div className="review-row"><span>Category:</span><strong>{formData.category}</strong></div>
-              <div className="review-row"><span>Found Location:</span><strong>{formData.location}</strong></div>
-              <div className="review-row"><span>Finder Name:</span><strong>{formData.finder_name}</strong></div>
+              <div className="review-row"><span>Custody:</span><span>{custodyMode === 'desk' ? 'Official Security Desk' : 'Direct Finder Custody'}</span></div>
+              <div className="review-row"><span>Location:</span><span>{formData.location}</span></div>
+              <div className="review-row"><span>Finder:</span><span>{formData.finder_name} ({formData.finder_phone})</span></div>
               <div className="review-row"><span>Reward UPI:</span><code>{formData.finder_upi_id}</code></div>
             </div>
+
             <div className="wizard-actions">
               <button type="button" className="btn btn-outline" onClick={() => setStep(4)}>
                 <i className="bi bi-arrow-left"></i> Edit Details
               </button>
               <button type="submit" className="btn btn-primary btn-lg" disabled={loading}>
-                {loading ? <><i className="bi bi-hourglass-split"></i> Submitting...</> : <><i className="bi bi-check2-circle"></i> Confirm &amp; Submit Found Report</>}
+                {loading ? <><i className="bi bi-hourglass-split"></i> Submitting...</> : <><i className="bi bi-check2-circle"></i> Complete Found Item Registration</>}
               </button>
             </div>
           </div>
