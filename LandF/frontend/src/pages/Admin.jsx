@@ -28,6 +28,7 @@ export default function Admin() {
   const [evaluatingId, setEvaluatingId] = useState(null);
   const [matchResults, setMatchResults] = useState(null);
   const [evalLoading, setEvalLoading] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
 
   useEffect(() => {
     if (pin) {
@@ -196,6 +197,23 @@ export default function Admin() {
       toast.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteItem = async (itemId, itemName) => {
+    if (!window.confirm(`Are you sure you want to permanently delete report "${itemName || itemId}" (${itemId})? This cannot be undone.`)) {
+      return;
+    }
+    const activePin = pin || localStorage.getItem('admin_pin') || 'admin123';
+    try {
+      setDeletingId(itemId);
+      await api.deleteItem(itemId, activePin);
+      toast.success(`Report ${itemId} deleted successfully.`);
+      await fetchAdminData(activePin);
+    } catch (err) {
+      toast.error(err);
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -623,14 +641,26 @@ export default function Admin() {
                       </span>
                     </td>
                     <td style={{ textAlign: 'right' }}>
-                      <button
-                        type="button"
-                        className="btn btn-primary btn-sm"
-                        onClick={() => runMatchCheck(item.id)}
-                        disabled={evalLoading}
-                      >
-                        <i className="bi bi-cpu"></i> Match Engine
-                      </button>
+                      <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end', alignItems: 'center' }}>
+                        <button
+                          type="button"
+                          className="btn btn-primary btn-sm"
+                          onClick={() => runMatchCheck(item.id)}
+                          disabled={evalLoading}
+                        >
+                          <i className="bi bi-cpu"></i> Match Engine
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-outline btn-sm"
+                          style={{ color: 'var(--color-rose)', borderColor: '#fca5a5' }}
+                          onClick={() => handleDeleteItem(item.id, item.title || item.product_name)}
+                          disabled={deletingId === item.id}
+                          title="Permanently delete this lost report"
+                        >
+                          {deletingId === item.id ? <i className="bi bi-hourglass-split"></i> : <i className="bi bi-trash3"></i>}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -657,6 +687,7 @@ export default function Admin() {
                   <th>Found Location</th>
                   <th>Finder Contact</th>
                   <th>Status</th>
+                  <th style={{ textAlign: 'right' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -683,6 +714,18 @@ export default function Admin() {
                       <span className={`badge ${item.status === 'RESOLVED' ? 'badge-verified' : 'badge-found'}`}>
                         {item.status}
                       </span>
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <button
+                        type="button"
+                        className="btn btn-outline btn-sm"
+                        style={{ color: 'var(--color-rose)', borderColor: '#fca5a5' }}
+                        onClick={() => handleDeleteItem(item.id, item.title || item.object_name)}
+                        disabled={deletingId === item.id}
+                        title="Permanently delete this found item report"
+                      >
+                        {deletingId === item.id ? <i className="bi bi-hourglass-split"></i> : <><i className="bi bi-trash3"></i> Delete</>}
+                      </button>
                     </td>
                   </tr>
                 ))}

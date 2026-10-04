@@ -81,25 +81,66 @@ export default function ReportFound() {
     reader.readAsDataURL(file);
   };
 
-  const autofillSample = () => {
-    setCustodyMode('desk');
-    setFormData({
+  const samplePresets = {
+    macbook: {
       desk_id: 'DESK-LIB-02',
-      object_name: 'MacBook Pro 14 Laptop in Dark Protective Cover',
+      object_name: 'Apple MacBook Pro 14 M2 Space Gray',
       category: 'Electronics',
-      description: 'Dark cover Space Gray 14-inch Apple laptop found near study desk.',
-      primary_photo: DEFAULT_SAMPLE_PHOTO,
-      location: 'Central Library Study Section',
-      latitude: 12.9726,
-      longitude: 77.5959,
+      description: 'Space Gray 14-inch MacBook Pro M2 in dark protective sleeve found near reading desk.',
+      location: 'Central Library 2nd Floor, Table 14',
+      latitude: 12.9725,
+      longitude: 77.5958,
       found_time: new Date().toISOString().slice(0, 16),
       finder_name: 'Rahul Verma',
       finder_phone: '+91 91234 56789',
       finder_email: 'rahul.verma@campus.edu',
       finder_upi_id: 'rahul@okaxis',
-      finder_roll_or_id: '2024CS042'
-    });
-    toast.success('Sample found item data loaded. Proceed through steps to review.');
+      finder_roll_or_id: '2024CS042',
+      custodyMode: 'desk'
+    },
+    wallet: {
+      desk_id: 'DESK-SEC-01',
+      object_name: 'Tommy Hilfiger Brown Leather Bi-Fold Wallet',
+      category: 'Wallets & Cards',
+      description: 'Classic tan brown bi-fold genuine leather wallet with metal TH flag crest found on cafeteria counter.',
+      location: 'Main Campus Cafeteria, Counter 2',
+      latitude: 12.9719,
+      longitude: 77.5942,
+      found_time: new Date().toISOString().slice(0, 16),
+      finder_name: 'Neha Gupta',
+      finder_phone: '+91 91234 56781',
+      finder_email: 'neha.gupta@campus.edu',
+      finder_upi_id: 'neha@oksbi',
+      finder_roll_or_id: '2024EC019',
+      custodyMode: 'desk'
+    },
+    headphones: {
+      desk_id: 'DESK-SAC-03',
+      object_name: 'Sony WH-1000XM5 Wireless Headphones (Silver)',
+      category: 'Electronics',
+      description: 'Platinum silver over-ear noise cancelling headphones in matching zip case found near sports court.',
+      location: 'Student Activity Center, Badminton Court Bench',
+      latitude: 12.9734,
+      longitude: 77.5971,
+      found_time: new Date().toISOString().slice(0, 16),
+      finder_name: 'Karan Singh',
+      finder_phone: '+91 91234 56782',
+      finder_email: 'karan.singh@campus.edu',
+      finder_upi_id: 'karan@okhdfc',
+      finder_roll_or_id: '2023ME011',
+      custodyMode: 'desk'
+    }
+  };
+
+  const autofillSample = (type = 'macbook') => {
+    const selected = samplePresets[type] || samplePresets.macbook;
+    setCustodyMode(selected.custodyMode || 'desk');
+    setFormData(prev => ({
+      ...prev,
+      ...selected,
+      primary_photo: DEFAULT_SAMPLE_PHOTO
+    }));
+    toast.success(`Loaded sample: ${selected.object_name}`);
   };
 
   const autoDetectLocation = () => {
@@ -232,9 +273,18 @@ export default function ReportFound() {
           <span className="badge badge-found"><i className="bi bi-box-seam"></i> Found Property</span>
           <h1 style={{ fontSize: '1.8rem', marginTop: '0.25rem' }}>Report a Found Item</h1>
         </div>
-        <button type="button" className="btn btn-outline btn-sm" onClick={autofillSample}>
-          <i className="bi bi-magic"></i> Autofill Sample: Found MacBook
-        </button>
+        <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', alignSelf: 'center' }}>Quick Samples:</span>
+          <button type="button" className="btn btn-outline btn-sm" onClick={() => autofillSample('macbook')}>
+            💻 MacBook Pro
+          </button>
+          <button type="button" className="btn btn-outline btn-sm" onClick={() => autofillSample('wallet')}>
+            👛 Leather Wallet
+          </button>
+          <button type="button" className="btn btn-outline btn-sm" onClick={() => autofillSample('headphones')}>
+            🎧 Sony Headphones
+          </button>
+        </div>
       </div>
 
       {/* Stepper Indicator */}

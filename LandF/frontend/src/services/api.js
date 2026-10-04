@@ -111,6 +111,7 @@ export const api = {
     body: JSON.stringify({ decision, notes })
   }),
   seedDemo: (pin = 'admin123') => request('/api/admin/seed-demo', { method: 'POST', headers: { 'x-admin-pin': pin } }),
-  clearDemoData: (pin = 'admin123') => request('/api/admin/clear-demo-data', { method: 'POST', headers: { 'x-admin-pin': pin } })
+  clearDemoData: (pin = 'admin123') => request('/api/admin/clear-demo-data', { method: 'POST', headers: { 'x-admin-pin': pin } }),
+  deleteItem: (itemId, pin = 'admin123') => request(`/api/admin/items/${itemId}`, { method: 'DELETE', headers: { 'x-admin-pin': pin } })
 };
 

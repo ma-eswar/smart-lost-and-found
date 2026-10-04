@@ -161,6 +161,31 @@ def update_item_status(item_id: str, payload: dict, x_admin_pin: Optional[str] =
     conn.close()
     return {"success": True, "item_id": item_id, "new_status": new_status}
 
+@router.delete("/items/{item_id}")
+def delete_item(item_id: str, x_admin_pin: Optional[str] = Header(None)):
+    """
+    Permanently deletes a lost or found report along with any linked probes,
+    match evaluations, release authorizations, and escrow records.
+    """
+    verify_admin_access(x_admin_pin)
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # 1. Clean up associated matching probes & evaluations
+    cursor.execute("DELETE FROM verification_probes WHERE lost_item_id = ? OR found_item_id = ?", (item_id, item_id))
+    cursor.execute("DELETE FROM match_evaluations WHERE lost_item_id = ? OR found_item_id = ?", (item_id, item_id))
+    cursor.execute("DELETE FROM release_authorizations WHERE lost_item_id = ? OR found_item_id = ?", (item_id, item_id))
+    cursor.execute("DELETE FROM escrow_records WHERE lost_item_id = ?", (item_id,))
+    
+    # 2. Delete from lost_items and found_items
+    cursor.execute("DELETE FROM lost_items WHERE id = ?", (item_id,))
+    cursor.execute("DELETE FROM found_items WHERE id = ?", (item_id,))
+    
+    conn.commit()
+    conn.close()
+    return {"success": True, "deleted_id": item_id, "message": "Report deleted successfully"}
+
+
 @router.get("/pending-approvals")
 def get_pending_handover_approvals(x_admin_pin: Optional[str] = Header(None)):
     """
