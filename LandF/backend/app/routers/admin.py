@@ -476,8 +476,39 @@ def decide_handover_approval(evaluation_id: str, payload: dict, x_admin_pin: Opt
         WHERE id = ?
         """, (now_str, evaluation_id))
 
-        # Update Lost Item Status
+        # Update Lost and Found Item Status
         cursor.execute("UPDATE lost_items SET status = 'MATCHED', updated_at = ? WHERE id = ?", (now_str, lost_id))
+        cursor.execute("UPDATE found_items SET status = 'READY_FOR_HANDOVER', updated_at = ? WHERE id = ?", (now_str, found_id))
+
+        # Automatically update & disburse escrow reward to the founder upon passcode generation
+        reward_amt = float(lost_item["reward_amount"]) if (lost_item and lost_item["reward_amount"]) else 0.0
+        finder_upi = (found_item["finder_upi_id"] if found_item else "") or "finder@upi"
+        
+        cursor.execute("SELECT * FROM escrow_records WHERE lost_item_id = ?", (lost_id,))
+        escrow = cursor.fetchone()
+        if escrow:
+            cursor.execute("""
+            UPDATE escrow_records
+            SET status = 'DISBURSED', found_item_id = ?, recipient_upi = ?, updated_at = ?
+            WHERE id = ?
+            """, (found_id, finder_upi, now_str, escrow["id"]))
+        elif reward_amt > 0:
+            from app.security import generate_intake_id
+            escrow_id = generate_intake_id("ESCROW")
+            cursor.execute("""
+            INSERT INTO escrow_records (
+                id, lost_item_id, found_item_id, amount, currency, status,
+                payer_name, payer_phone, recipient_upi, transaction_ref, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, 'INR', 'DISBURSED', ?, ?, ?, ?, ?, ?)
+            """, (
+                escrow_id, lost_id, found_id, reward_amt,
+                lost_item["owner_name"] if lost_item else "Claimant",
+                lost_item["owner_phone"] if lost_item else "",
+                finder_upi,
+                f"TXN-AUTO-{lost_id[-4:]}-{found_id[-4:]}",
+                now_str, now_str
+            ))
+        cursor.execute("UPDATE lost_items SET escrow_status = 'RELEASED', updated_at = ? WHERE id = ?", (now_str, lost_id))
 
         # Notify Owner
         from app.security import generate_intake_id

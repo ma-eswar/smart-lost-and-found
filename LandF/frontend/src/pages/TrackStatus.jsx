@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../services/api';
 import { useToast } from '../components/Toast';
 import { useAuth } from '../components/AuthContext';
@@ -7,10 +7,10 @@ import { useAuth } from '../components/AuthContext';
 const DEMO_HINGE_PHOTO = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='300'><rect width='400' height='300' fill='%2318181b'/><line x1='240' y1='80' x2='240' y2='220' stroke='%2352525b' stroke-width='6'/><path d='M250 110 L280 125' stroke='%23ef4444' stroke-width='3'/><text x='200' y='50' fill='%23f43f5e' font-weight='bold' text-anchor='middle'>Right Hinge Verification Photo</text></svg>";
 
 export default function TrackStatus() {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const toast = useToast();
   const { user, isLoggedIn, setShowLoginModal } = useAuth();
-  const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState(null);
   const [metrics, setMetrics] = useState({ rewards_earned: 0, money_spent: 0, active_lost_count: 0, active_found_count: 0 });
@@ -18,31 +18,18 @@ export default function TrackStatus() {
   const [copiedCode, setCopiedCode] = useState(false);
   const [activeProbeModal, setActiveProbeModal] = useState(null);
 
-  // Auto load when user is logged in or if q query param exists
+  // Auto load when user is logged in
   useEffect(() => {
-    const q = searchParams.get('q');
-    if (q) {
-      setQuery(q);
-      executeSearch(q);
-    } else if (user?.phone) {
-      setQuery(user.phone);
-      executeSearch(user.phone);
-    } else if (user?.id) {
-      setQuery(user.id);
-      executeSearch(user.id);
-    } else {
-      const lastPhone = localStorage.getItem('last_user_phone');
-      if (lastPhone) {
-        setQuery(lastPhone);
-        executeSearch(lastPhone);
-      }
+    if (isLoggedIn && (user?.phone || user?.id)) {
+      const ident = user.phone || user.id;
+      executeSearch(ident);
     }
-  }, [searchParams, user]);
+  }, [isLoggedIn, user]);
 
-  // Real-time automatic background polling
+  // Real-time automatic background polling (for authenticated user only)
   useEffect(() => {
-    const ident = query || user?.phone || user?.id || localStorage.getItem('last_user_phone');
-    if (!ident) return;
+    if (!isLoggedIn || (!user?.phone && !user?.id)) return;
+    const ident = user.phone || user.id;
 
     const interval = setInterval(async () => {
       try {
@@ -58,7 +45,7 @@ export default function TrackStatus() {
     }, 10000);
 
     return () => clearInterval(interval);
-  }, [query, user]);
+  }, [isLoggedIn, user]);
 
   const executeSearch = async (val) => {
     if (!val || !val.trim()) return;
@@ -70,7 +57,6 @@ export default function TrackStatus() {
       ]);
       setData(res);
       setMetrics(metricRes);
-      localStorage.setItem('last_user_phone', val.trim());
     } catch (err) {
       toast.error(err);
       setData(null);
@@ -79,26 +65,13 @@ export default function TrackStatus() {
     }
   };
 
-  const handleSearch = (e) => {
-    e.preventDefault();
-    executeSearch(query);
-  };
-
   const handleRunMatch = async (lostId) => {
     try {
       const res = await api.evaluateMatches(lostId, 'admin123');
       toast.success(`Match check complete! Found ${res.candidate_count || 0} candidate(s).`);
-      executeSearch(query || user?.phone || user?.id);
-    } catch (err) {
-      toast.error(err);
-    }
-  };
-
-  const handleRunFoundMatch = async (foundId) => {
-    try {
-      const res = await api.evaluateFoundMatches(foundId, 'admin123');
-      toast.success(`Scanned against lost records! Found ${res.match_count || 0} match(es).`);
-      executeSearch(query || user?.phone || user?.id);
+      if (user?.phone || user?.id) {
+        executeSearch(user.phone || user.id);
+      }
     } catch (err) {
       toast.error(err);
     }
@@ -108,7 +81,9 @@ export default function TrackStatus() {
     try {
       await api.submitProbeResponse(probeId, DEMO_HINGE_PHOTO, 'Clear close-up photo under natural lighting.');
       toast.success('Verification photo submitted! Match confirmed.');
-      executeSearch(query || user?.phone || user?.id);
+      if (user?.phone || user?.id) {
+        executeSearch(user.phone || user.id);
+      }
     } catch (err) {
       toast.error(err);
     }
@@ -134,6 +109,51 @@ export default function TrackStatus() {
     return { label: 'Active Search in Progress', class: 'badge-lost', icon: 'bi-radar' };
   };
 
+  // 1. Unauthenticated Security Gateway Screen
+  if (!isLoggedIn) {
+    return (
+      <div className="main-content" style={{ maxWidth: '560px', margin: '2rem auto' }}>
+        <div className="form-card" style={{ textAlign: 'center', padding: '2.5rem 2rem' }}>
+          <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: '#eff6ff', color: 'var(--color-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.25rem auto', fontSize: '2rem' }}>
+            <i className="bi bi-shield-lock-fill"></i>
+          </div>
+          <h2 style={{ fontSize: '1.6rem', fontWeight: 800, marginBottom: '0.5rem' }}>
+            User Dashboard Access
+          </h2>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', lineHeight: 1.5, marginBottom: '1.75rem' }}>
+            For privacy and security, your lost property reports, verified matches, and physical pickup passcodes are only accessible when signed in with your registered mobile phone number.
+          </p>
+
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => setShowLoginModal(true)}
+            style={{ width: '100%', height: '48px', fontSize: '1rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', marginBottom: '1.25rem' }}
+          >
+            <i className="bi bi-person-lock"></i> Sign In to View My Listings
+          </button>
+
+          <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
+            <button
+              type="button"
+              className="btn btn-outline btn-sm"
+              onClick={() => navigate('/lost')}
+            >
+              <i className="bi bi-search"></i> Report Lost Item
+            </button>
+            <button
+              type="button"
+              className="btn btn-outline btn-sm"
+              onClick={() => navigate('/found')}
+            >
+              <i className="bi bi-box-seam"></i> Report Found Item
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="main-content" style={{ maxWidth: '900px' }}>
       {/* Header Banner */}
@@ -141,29 +161,16 @@ export default function TrackStatus() {
         <div>
           <span className="badge badge-neutral"><i className="bi bi-speedometer2"></i> User Dashboard</span>
           <h1 style={{ fontSize: '1.8rem', marginTop: '0.25rem' }}>
-            {isLoggedIn ? `Welcome, ${user.full_name || 'User'}` : 'Status & Verification Hub'}
+            Welcome, {user?.full_name || 'User'}
           </h1>
           <p className="field-hint" style={{ color: 'var(--text-secondary)' }}>
-            {isLoggedIn
-              ? 'Your personalized portal: track continuous automated matching, respond to neutral photo challenges, and view physical pickup passcodes.'
-              : 'Track continuous automated matching, respond to neutral photo challenges, and view physical pickup passcodes.'}
+            Your personalized portal: track continuous automated matching, respond to neutral photo challenges, and view physical pickup passcodes.
           </p>
         </div>
-
-        {!isLoggedIn && (
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={() => setShowLoginModal(true)}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}
-          >
-            <i className="bi bi-person-lock"></i> Sign In to Account
-          </button>
-        )}
       </div>
 
       {/* Logged-In User Profile Info Card */}
-      {isLoggedIn && user && (
+      {user && (
         <div className="form-card" style={{ marginBottom: '1.5rem', padding: '1.25rem', background: 'linear-gradient(to right, #f8fafc, #eff6ff)', border: '1px solid #bfdbfe' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -185,29 +192,9 @@ export default function TrackStatus() {
               onClick={() => executeSearch(user.phone || user.id)}
               disabled={loading}
             >
-              <i className="bi bi-arrow-clockwise"></i> Refresh Records
+              {loading ? <><i className="bi bi-hourglass-split"></i> Updating...</> : <><i className="bi bi-arrow-clockwise"></i> Refresh Records</>}
             </button>
           </div>
-        </div>
-      )}
-
-      {/* Guest Search Bar if not logged in */}
-      {!isLoggedIn && (
-        <div className="form-card" style={{ marginBottom: '1.75rem' }}>
-          <form onSubmit={handleSearch} style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-            <input 
-              type="text" 
-              className="form-control" 
-              style={{ flex: 1, minWidth: '240px' }} 
-              placeholder="Enter your phone number or report ID (e.g. +91 98765 43210)" 
-              value={query} 
-              onChange={(e) => setQuery(e.target.value)} 
-              required 
-            />
-            <button type="submit" className="btn btn-primary" style={{ whiteSpace: 'nowrap' }} disabled={loading}>
-              {loading ? <><i className="bi bi-hourglass-split"></i> Searching...</> : <><i className="bi bi-search"></i> Search Records</>}
-            </button>
-          </form>
         </div>
       )}
 
@@ -350,16 +337,6 @@ export default function TrackStatus() {
                             Deposit ID: <code>{item.id}</code> • Found At: {item.found_location} • Reward UPI: <code>{item.finder_upi_id}</code>
                           </span>
                         </div>
-                        {item.status !== 'RESOLVED' && (
-                          <button
-                            type="button"
-                            className="btn btn-outline btn-sm"
-                            onClick={() => handleRunFoundMatch(item.id)}
-                            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
-                          >
-                            <i className="bi bi-cpu"></i> Check Matching Claims
-                          </button>
-                        )}
                       </div>
 
                       {/* ACTIVE PENDING AI PHOTO CHALLENGE (Single instance) */}
