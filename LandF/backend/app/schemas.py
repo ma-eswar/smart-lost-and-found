@@ -55,6 +55,7 @@ class LostItemCreate(BaseModel):
     longitude: float = Field(..., ge=-180.0, le=180.0)
     last_seen_time: str = Field(...)
     user_id: Optional[str] = None
+    password: Optional[str] = None
 
 class LostItemResponse(BaseModel):
     id: str
@@ -78,6 +79,8 @@ class LostItemResponse(BaseModel):
     status: str
     access_token: str
     created_at: str
+    auth_token: Optional[str] = None
+    user: Optional[UserResponse] = None
 
 # -------------------------------------------------------------
 # Found Item Schemas (Dual Ingestion)
@@ -99,6 +102,7 @@ class FoundItemDeskCreate(BaseModel):
     longitude: Optional[float] = None
     found_time: Optional[str] = None
     user_id: Optional[str] = None
+    password: Optional[str] = None
 
 class FoundItemDirectCreate(BaseModel):
     object_name: str = Field(..., min_length=2)
@@ -117,6 +121,7 @@ class FoundItemDirectCreate(BaseModel):
     finder_upi_id: str = Field(..., min_length=4)
     finder_roll_or_id: Optional[str] = None
     user_id: Optional[str] = None
+    password: Optional[str] = None
 
 class FoundItemResponse(BaseModel):
     id: str
@@ -141,6 +146,8 @@ class FoundItemResponse(BaseModel):
     status: str
     access_token: str
     created_at: str
+    auth_token: Optional[str] = None
+    user: Optional[UserResponse] = None
 
 # -------------------------------------------------------------
 # Desk & Verification Schemas

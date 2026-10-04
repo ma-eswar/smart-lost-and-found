@@ -2,6 +2,7 @@ import json
 from fastapi import APIRouter, HTTPException
 from app.database import get_db_connection
 from app.schemas import StatusLookupRequest
+from app.security import normalize_phone
 
 router = APIRouter(tags=["User Status & Notifications"])
 
@@ -14,23 +15,24 @@ def lookup_user_submissions(payload: StatusLookupRequest):
     if not query:
         raise HTTPException(status_code=400, detail="Please provide a phone number, tracking token, or ID")
         
+    norm_phone = normalize_phone(query)
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # Search lost items matching phone OR access_token OR id OR user_id
+    # Search lost items matching phone OR normalized phone OR access_token OR id OR user_id
     cursor.execute("""
     SELECT * FROM lost_items 
-    WHERE owner_phone = ? OR access_token = ? OR id = ? OR user_id = ?
+    WHERE owner_phone = ? OR owner_phone LIKE ? OR access_token = ? OR id = ? OR user_id = ?
     ORDER BY created_at DESC
-    """, (query, query, query, query))
+    """, (query, f"%{norm_phone}%" if norm_phone else query, query, query, query))
     lost_rows = cursor.fetchall()
     
-    # Search found items matching phone OR access_token OR id OR receipt_id OR user_id
+    # Search found items matching phone OR normalized phone OR access_token OR id OR receipt_id OR user_id
     cursor.execute("""
     SELECT * FROM found_items 
-    WHERE finder_phone = ? OR access_token = ? OR id = ? OR desk_intake_receipt_id = ? OR user_id = ?
+    WHERE finder_phone = ? OR finder_phone LIKE ? OR access_token = ? OR id = ? OR desk_intake_receipt_id = ? OR user_id = ?
     ORDER BY created_at DESC
-    """, (query, query, query, query, query))
+    """, (query, f"%{norm_phone}%" if norm_phone else query, query, query, query, query))
     found_rows = cursor.fetchall()
     
     formatted_lost = []
@@ -74,8 +76,8 @@ def lookup_user_submissions(payload: StatusLookupRequest):
     formatted_found = []
     for row in found_rows:
         cursor.execute("""
-        SELECT id, found_item_id, target_area, neutral_prompt, finder_response_photo,
-               probe_status, created_at
+        SELECT id, found_item_id, target_area, neutral_prompt, finder_response_photo, finder_notes,
+               agent_verification_score, agent_analysis_reasoning, probe_status, created_at, updated_at
         FROM verification_probes
         WHERE found_item_id = ?
         ORDER BY created_at DESC
@@ -111,9 +113,6 @@ def lookup_user_submissions(payload: StatusLookupRequest):
         
     conn.close()
 
-    if not formatted_lost and not formatted_found:
-        raise HTTPException(status_code=404, detail="No active or past submissions found for the provided query")
-        
     return {
         "success": True,
         "query": query,
@@ -134,13 +133,14 @@ def get_user_notifications(user_identifier: str):
     if not ident:
         return []
 
+    norm_phone = normalize_phone(ident)
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("""
     SELECT * FROM notifications 
-    WHERE user_id = ? OR phone = ?
+    WHERE user_id = ? OR phone = ? OR phone LIKE ?
     ORDER BY created_at DESC LIMIT 30
-    """, (ident, ident))
+    """, (ident, ident, f"%{norm_phone}%" if norm_phone else ident))
     rows = cursor.fetchall()
     conn.close()
 
@@ -183,17 +183,17 @@ def get_user_financial_metrics(user_id: str):
     - active_found_count: currently active found items.
     """
     ident = user_id.strip()
+    norm_phone = normalize_phone(ident)
     conn = get_db_connection()
     cursor = conn.cursor()
 
     # 1. Rewards earned by this finder (where escrow is DISBURSED or RELEASED)
-    # Check by user_id OR by finder_phone/email
     cursor.execute("""
     SELECT COALESCE(SUM(e.amount), 0.0) as total_earned
     FROM escrow_records e
     JOIN found_items f ON e.found_item_id = f.id
-    WHERE (f.user_id = ? OR f.finder_phone = ?) AND e.status IN ('DISBURSED', 'RELEASED')
-    """, (ident, ident))
+    WHERE (f.user_id = ? OR f.finder_phone = ? OR f.finder_phone LIKE ?) AND e.status IN ('DISBURSED', 'RELEASED')
+    """, (ident, ident, f"%{norm_phone}%" if norm_phone else ident))
     row_earned = cursor.fetchone()
     rewards_earned = float(row_earned["total_earned"]) if row_earned else 0.0
 
@@ -202,23 +202,23 @@ def get_user_financial_metrics(user_id: str):
     SELECT COALESCE(SUM(e.amount), 0.0) as total_spent
     FROM escrow_records e
     JOIN lost_items l ON e.lost_item_id = l.id
-    WHERE (l.user_id = ? OR l.owner_phone = ?) AND e.status IN ('DISBURSED', 'RELEASED')
-    """, (ident, ident))
+    WHERE (l.user_id = ? OR l.owner_phone = ? OR l.owner_phone LIKE ?) AND e.status IN ('DISBURSED', 'RELEASED')
+    """, (ident, ident, f"%{norm_phone}%" if norm_phone else ident))
     row_spent = cursor.fetchone()
     money_spent = float(row_spent["total_spent"]) if row_spent else 0.0
 
     # 3. Active lost items count
     cursor.execute("""
     SELECT COUNT(*) as cnt FROM lost_items 
-    WHERE (user_id = ? OR owner_phone = ?) AND status NOT IN ('RESOLVED', 'ARCHIVED')
-    """, (ident, ident))
+    WHERE (user_id = ? OR owner_phone = ? OR owner_phone LIKE ?) AND status NOT IN ('RESOLVED', 'ARCHIVED')
+    """, (ident, ident, f"%{norm_phone}%" if norm_phone else ident))
     active_lost_count = cursor.fetchone()["cnt"]
 
     # 4. Active found items count
     cursor.execute("""
     SELECT COUNT(*) as cnt FROM found_items 
-    WHERE (user_id = ? OR finder_phone = ?) AND status NOT IN ('RESOLVED', 'ARCHIVED')
-    """, (ident, ident))
+    WHERE (user_id = ? OR finder_phone = ? OR finder_phone LIKE ?) AND status NOT IN ('RESOLVED', 'ARCHIVED')
+    """, (ident, ident, f"%{norm_phone}%" if norm_phone else ident))
     active_found_count = cursor.fetchone()["cnt"]
 
     conn.close()

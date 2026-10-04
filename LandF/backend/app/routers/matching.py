@@ -6,7 +6,10 @@ from datetime import datetime, timedelta
 
 from app.database import get_db_connection
 from app.config import ADMIN_PIN
-from app.services.matching_pipeline import run_matching_pipeline_for_lost_item
+from app.services.matching_pipeline import (
+    run_matching_pipeline_for_lost_item,
+    run_matching_pipeline_for_found_item
+)
 from app.services.verification_agent import (
     create_verification_probe_for_match,
     evaluate_finder_verification_photo
@@ -62,6 +65,22 @@ def evaluate_lost_item_matches(lost_item_id: str, x_admin_pin: Optional[str] = H
             "lost_item_id": lost_item_id,
             "candidate_count": len(results),
             "candidates": results
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/evaluate-found/{found_item_id}")
+def evaluate_found_item_matches(found_item_id: str, x_admin_pin: Optional[str] = Header(None)):
+    """Executes matching for a found item against all active lost items."""
+    verify_admin_or_owner(x_admin_pin)
+    try:
+        results = run_matching_pipeline_for_found_item(found_item_id)
+        return {
+            "success": True,
+            "found_item_id": found_item_id,
+            "match_count": len(results),
+            "matches": results
         }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -187,7 +206,8 @@ def submit_finder_probe_response(probe_id: str, payload: SubmitProbeResponseRequ
         secret_point=probe["secret_point_text"],
         target_area=probe["target_area"],
         finder_photo_url=saved_photo_url,
-        finder_notes=payload.finder_notes
+        finder_notes=payload.finder_notes,
+        photo_data_raw=payload.photo_data
     )
 
     probe_status = "VERIFIED" if status == "VERIFIED" else "FAILED"
@@ -219,9 +239,73 @@ def submit_finder_probe_response(probe_id: str, payload: SubmitProbeResponseRequ
     WHERE lost_item_id = ? AND found_item_id = ?
     """, (eval_status, now_str, probe["lost_item_id"], probe["found_item_id"]))
 
-    # Update lost item status if verified
+    # Update lost item status and issue release passcode if verified
+    passcode_issued = None
     if probe_status == "VERIFIED":
+        # Fetch lost & found item details
+        cursor.execute("SELECT * FROM lost_items WHERE id = ?", (probe["lost_item_id"],))
+        lost_row = cursor.fetchone()
+
+        cursor.execute("SELECT * FROM found_items WHERE id = ?", (probe["found_item_id"],))
+        found_row = cursor.fetchone()
+
+        passcode = generate_otp()
+        passcode_issued = passcode
+        auth_id = generate_intake_id("AUTH")
+        eval_id = f"EVAL-{probe['lost_item_id'][-6:]}-{probe['found_item_id'][-6:]}"
+        expires_at = (datetime.now() + timedelta(days=7)).isoformat()
+
+        cursor.execute("""
+        INSERT INTO release_authorizations (
+            id, lost_item_id, found_item_id, evaluation_id, owner_phone,
+            passcode, is_used, expires_at, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?)
+        """, (
+            auth_id,
+            probe["lost_item_id"],
+            probe["found_item_id"],
+            eval_id,
+            lost_row["owner_phone"] if lost_row else "",
+            passcode,
+            expires_at,
+            now_str,
+            now_str
+        ))
+
         cursor.execute("UPDATE lost_items SET status = 'READY_FOR_HANDOVER', updated_at = ? WHERE id = ?", (now_str, probe["lost_item_id"]))
+        cursor.execute("UPDATE found_items SET status = 'READY_FOR_HANDOVER', updated_at = ? WHERE id = ?", (now_str, probe["found_item_id"]))
+
+        # Notify Owner with the 6-digit pickup code
+        if lost_row:
+            notif_id_owner = generate_intake_id("NOTIF")
+            cursor.execute("""
+            INSERT INTO notifications (id, user_id, phone, type, title, message, action_url, is_read, created_at)
+            VALUES (?, ?, ?, 'MATCH_FOUND', ?, ?, ?, 0, ?)
+            """, (
+                notif_id_owner,
+                lost_row["user_id"],
+                lost_row["owner_phone"],
+                "Ownership Verified! Pickup Code Ready",
+                f"AI Agent verified close-up photos for '{lost_row['product_name']}'. Your 6-digit pickup passcode is {passcode}. Present this to security to collect your item.",
+                f"/status?q={lost_row['owner_phone']}",
+                now_str
+            ))
+
+        # Notify Finder
+        if found_row:
+            notif_id_finder = generate_intake_id("NOTIF")
+            cursor.execute("""
+            INSERT INTO notifications (id, user_id, phone, type, title, message, action_url, is_read, created_at)
+            VALUES (?, ?, ?, 'MATCH_FOUND', ?, ?, ?, 0, ?)
+            """, (
+                notif_id_finder,
+                found_row["user_id"],
+                found_row["finder_phone"],
+                "Verification Photo Accepted by AI Agent",
+                f"Your close-up photo for '{found_row['object_name']}' matched the owner's verification criteria! The owner has been issued a pickup passcode.",
+                f"/status?q={found_row['finder_phone']}",
+                now_str
+            ))
 
     conn.commit()
     conn.close()
@@ -230,6 +314,7 @@ def submit_finder_probe_response(probe_id: str, payload: SubmitProbeResponseRequ
         "success": True,
         "probe_id": probe_id,
         "probe_status": probe_status,
+        "passcode_issued": passcode_issued,
         "agent_verification_score": confidence,
         "agent_analysis_reasoning": reasoning,
         "updated_at": now_str

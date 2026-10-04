@@ -160,33 +160,243 @@ def update_item_status(item_id: str, payload: dict, x_admin_pin: Optional[str] =
     conn.close()
     return {"success": True, "item_id": item_id, "new_status": new_status}
 
-@router.post("/escrow/{escrow_id}/release")
-def release_escrow_reward(escrow_id: str, payload: dict, x_admin_pin: Optional[str] = Header(None)):
+@router.get("/pending-approvals")
+def get_pending_handover_approvals(x_admin_pin: Optional[str] = Header(None)):
+    """
+    Returns all match evaluations with AI agent verification history,
+    complete owner details, and complete founder details for final Admin verification sign-off.
+    """
     verify_admin_access(x_admin_pin)
-    recipient_upi = payload.get("recipient_upi")
-    now_str = datetime.now().isoformat()
-    
     conn = get_db_connection()
     cursor = conn.cursor()
+
+    # Query match evaluations that have been verified by AI agent or candidate matches
     cursor.execute("""
-    UPDATE escrow_records 
-    SET status = 'DISBURSED', recipient_upi = ?, updated_at = ?
-    WHERE id = ?
-    """, (recipient_upi, now_str, escrow_id))
-    
-    # Update linked lost item escrow status
-    cursor.execute("SELECT lost_item_id FROM escrow_records WHERE id = ?", (escrow_id,))
-    row = cursor.fetchone()
-    if row and row["lost_item_id"]:
-        cursor.execute("UPDATE lost_items SET escrow_status = 'RELEASED', updated_at = ? WHERE id = ?", (now_str, row["lost_item_id"]))
-        
+    SELECT me.id as evaluation_id, me.lost_item_id, me.found_item_id,
+           me.composite_score, me.text_score, me.distance_km, me.distance_score,
+           me.time_delta_hours, me.time_decay_score, me.spatio_temporal_score,
+           me.visual_score, me.visual_details, me.verification_status, me.admin_decision,
+           me.created_at as eval_created_at, me.updated_at as eval_updated_at,
+           li.product_name, li.category as lost_category, li.description as lost_description,
+           li.reference_photos, li.secret_points, li.reward_amount, li.reward_currency,
+           li.owner_name, li.owner_phone, li.owner_email, li.residential_address,
+           li.govt_id_last4, li.last_seen_location, li.last_seen_time, li.status as lost_status,
+           fi.object_name, fi.category as found_category, fi.description as found_description,
+           fi.primary_photo, fi.additional_photos, fi.found_location, fi.found_time,
+           fi.pickup_availability, fi.finder_name, fi.finder_phone, fi.finder_email,
+           fi.finder_upi_id, fi.submission_type, fi.status as found_status
+    FROM match_evaluations me
+    JOIN lost_items li ON me.lost_item_id = li.id
+    JOIN found_items fi ON me.found_item_id = fi.id
+    ORDER BY me.composite_score DESC, me.updated_at DESC
+    """)
+    rows = cursor.fetchall()
+
+    approvals = []
+    for r in rows:
+        # Fetch associated AI verification probe
+        cursor.execute("""
+        SELECT * FROM verification_probes
+        WHERE lost_item_id = ? AND found_item_id = ?
+        ORDER BY created_at DESC LIMIT 1
+        """, (r["lost_item_id"], r["found_item_id"]))
+        probe_row = cursor.fetchone()
+
+        # Fetch active release authorization passcode if exists
+        cursor.execute("""
+        SELECT passcode, is_used, expires_at FROM release_authorizations
+        WHERE evaluation_id = ? OR (lost_item_id = ? AND found_item_id = ?)
+        ORDER BY created_at DESC LIMIT 1
+        """, (r["evaluation_id"], r["lost_item_id"], r["found_item_id"]))
+        auth_row = cursor.fetchone()
+
+        probe_data = None
+        if probe_row:
+            probe_data = {
+                "id": probe_row["id"],
+                "target_area": probe_row["target_area"],
+                "neutral_prompt": probe_row["neutral_prompt"],
+                "secret_point_text": probe_row["secret_point_text"],
+                "finder_response_photo": probe_row["finder_response_photo"],
+                "finder_notes": probe_row["finder_notes"],
+                "agent_verification_score": probe_row["agent_verification_score"],
+                "agent_analysis_reasoning": probe_row["agent_analysis_reasoning"],
+                "probe_status": probe_row["probe_status"],
+                "created_at": probe_row["created_at"],
+                "updated_at": probe_row["updated_at"]
+            }
+
+        approvals.append({
+            "evaluation_id": r["evaluation_id"],
+            "lost_item": {
+                "id": r["lost_item_id"],
+                "product_name": r["product_name"],
+                "category": r["lost_category"],
+                "description": r["lost_description"],
+                "reference_photos": json.loads(r["reference_photos"]) if r["reference_photos"] else [],
+                "secret_points": json.loads(r["secret_points"]) if r["secret_points"] else [],
+                "reward_amount": r["reward_amount"],
+                "reward_currency": r["reward_currency"],
+                "owner_name": r["owner_name"],
+                "owner_phone": r["owner_phone"],
+                "owner_email": r["owner_email"],
+                "residential_address": r["residential_address"],
+                "govt_id_last4": r["govt_id_last4"],
+                "last_seen_location": r["last_seen_location"],
+                "last_seen_time": r["last_seen_time"],
+                "status": r["lost_status"]
+            },
+            "found_item": {
+                "id": r["found_item_id"],
+                "object_name": r["object_name"],
+                "category": r["found_category"],
+                "description": r["found_description"],
+                "primary_photo": r["primary_photo"],
+                "additional_photos": json.loads(r["additional_photos"]) if r["additional_photos"] else [],
+                "found_location": r["found_location"],
+                "found_time": r["found_time"],
+                "pickup_availability": r["pickup_availability"],
+                "finder_name": r["finder_name"],
+                "finder_phone": r["finder_phone"],
+                "finder_email": r["finder_email"],
+                "finder_upi_id": r["finder_upi_id"],
+                "submission_type": r["submission_type"],
+                "status": r["found_status"]
+            },
+            "probe": probe_data,
+            "scores": {
+                "composite_score": r["composite_score"],
+                "text_score": r["text_score"],
+                "distance_km": r["distance_km"],
+                "distance_score": r["distance_score"],
+                "time_delta_hours": r["time_delta_hours"],
+                "spatio_temporal_score": r["spatio_temporal_score"],
+                "visual_score": r["visual_score"]
+            },
+            "verification_status": r["verification_status"],
+            "admin_decision": r["admin_decision"],
+            "active_passcode": auth_row["passcode"] if auth_row else None,
+            "is_passcode_used": bool(auth_row["is_used"]) if auth_row else False,
+            "eval_created_at": r["eval_created_at"],
+            "eval_updated_at": r["eval_updated_at"]
+        })
+
+    conn.close()
+    return approvals
+
+
+@router.post("/approvals/{evaluation_id}/decide")
+def decide_handover_approval(evaluation_id: str, payload: dict, x_admin_pin: Optional[str] = Header(None)):
+    """
+    Admin gives final verification approval or rejection for physical handover.
+    """
+    verify_admin_access(x_admin_pin)
+    decision = payload.get("decision", "APPROVED").upper() # "APPROVED" or "REJECTED"
+    notes = payload.get("notes", "")
+    now_str = datetime.now().isoformat()
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT * FROM match_evaluations WHERE id = ?", (evaluation_id,))
+    match_row = cursor.fetchone()
+    if not match_row:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Match evaluation not found")
+
+    lost_id = match_row["lost_item_id"]
+    found_id = match_row["found_item_id"]
+
+    cursor.execute("SELECT * FROM lost_items WHERE id = ?", (lost_id,))
+    lost_item = cursor.fetchone()
+
+    cursor.execute("SELECT * FROM found_items WHERE id = ?", (found_id,))
+    found_item = cursor.fetchone()
+
+    passcode_issued = None
+    if decision == "APPROVED":
+        # Check if release passcode already exists
+        cursor.execute("SELECT passcode FROM release_authorizations WHERE evaluation_id = ?", (evaluation_id,))
+        existing_auth = cursor.fetchone()
+
+        if existing_auth:
+            passcode_issued = existing_auth["passcode"]
+        else:
+            from app.security import generate_otp, generate_intake_id
+            passcode_issued = generate_otp()
+            auth_id = generate_intake_id("AUTH")
+            expires_at = (datetime.now() + timedelta(days=7)).isoformat()
+            cursor.execute("""
+            INSERT INTO release_authorizations (
+                id, lost_item_id, found_item_id, evaluation_id, owner_phone,
+                passcode, is_used, expires_at, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?)
+            """, (
+                auth_id,
+                lost_id,
+                found_id,
+                evaluation_id,
+                lost_item["owner_phone"] if lost_item else "",
+                passcode_issued,
+                expires_at,
+                now_str,
+                now_str
+            ))
+
+        # Update Match Evaluation
+        cursor.execute("""
+        UPDATE match_evaluations
+        SET admin_decision = 'APPROVED', verification_status = 'ADMIN_APPROVED', updated_at = ?
+        WHERE id = ?
+        """, (now_str, evaluation_id))
+
+        # Update Lost Item Status
+        cursor.execute("UPDATE lost_items SET status = 'MATCHED', updated_at = ? WHERE id = ?", (now_str, lost_id))
+
+        # Notify Owner
+        from app.security import generate_intake_id
+        notif_id_owner = generate_intake_id("NOTIF")
+        cursor.execute("""
+        INSERT INTO notifications (id, user_id, phone, type, title, message, action_url, is_read, created_at)
+        VALUES (?, ?, ?, 'HANDOVER_APPROVED', ?, ?, ?, 0, ?)
+        """, (
+            notif_id_owner,
+            lost_item["user_id"] if lost_item else None,
+            lost_item["owner_phone"] if lost_item else "",
+            "Admin Verification Approved!",
+            f"Admin has verified and approved your handover for '{lost_item['product_name'] if lost_item else 'Item'}'. 6-digit pickup passcode: {passcode_issued}.",
+            f"/status?q={lost_item['owner_phone'] if lost_item else ''}",
+            now_str
+        ))
+
+        # Notify Finder
+        notif_id_finder = generate_intake_id("NOTIF")
+        cursor.execute("""
+        INSERT INTO notifications (id, user_id, phone, type, title, message, action_url, is_read, created_at)
+        VALUES (?, ?, ?, 'HANDOVER_APPROVED', ?, ?, ?, 0, ?)
+        """, (
+            notif_id_finder,
+            found_item["user_id"] if found_item else None,
+            found_item["finder_phone"] if found_item else "",
+            "Handover Approved by Admin",
+            f"Verification for '{found_item['object_name'] if found_item else 'Item'}' has been approved by admin.",
+            f"/status?q={found_item['finder_phone'] if found_item else ''}",
+            now_str
+        ))
+    else:
+        cursor.execute("""
+        UPDATE match_evaluations
+        SET admin_decision = 'REJECTED', verification_status = 'REJECTED_BY_ADMIN', updated_at = ?
+        WHERE id = ?
+        """, (now_str, evaluation_id))
+
     conn.commit()
     conn.close()
-    
+
     return {
         "success": True,
-        "escrow_id": escrow_id,
-        "status": "DISBURSED",
-        "recipient_upi": recipient_upi,
-        "disbursed_at": now_str
+        "evaluation_id": evaluation_id,
+        "decision": decision,
+        "passcode": passcode_issued,
+        "message": f"Verification review decision marked as {decision}."
     }

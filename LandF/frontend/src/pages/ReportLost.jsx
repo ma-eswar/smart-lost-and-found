@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { useToast } from '../components/Toast';
+import { useAuth } from '../components/AuthContext';
 
 const QUICK_QUESTION_TEMPLATES = [
   'What sticker, decal, or emblem is on the item?',
@@ -14,6 +15,7 @@ const QUICK_QUESTION_TEMPLATES = [
 export default function ReportLost() {
   const navigate = useNavigate();
   const toast = useToast();
+  const { setAuthSession } = useAuth();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [geoStatus, setGeoStatus] = useState('');
@@ -25,12 +27,7 @@ export default function ReportLost() {
     category: 'Electronics',
     description: '',
     reward_amount: 0,
-    confirmation_points: [
-      {
-        question: 'What unique sticker, scratch, or marking is on the item?',
-        point: ''
-      }
-    ],
+    confirmation_points: [''],
     location: '',
     latitude: 12.9725,
     longitude: 77.5958,
@@ -71,25 +68,22 @@ export default function ReportLost() {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handlePointChange = (index, field, value) => {
+  const handlePointChange = (index, value) => {
     setFormData(prev => {
       const updated = [...prev.confirmation_points];
-      updated[index] = { ...updated[index], [field]: value };
+      updated[index] = value;
       return { ...prev, confirmation_points: updated };
     });
   };
 
   const addPoint = () => {
     if (formData.confirmation_points.length >= 3) {
-      toast.info('You can add up to 3 confirmation details or questions.');
+      toast.info('You can add up to 3 confirmation details.');
       return;
     }
     setFormData(prev => ({
       ...prev,
-      confirmation_points: [
-        ...prev.confirmation_points,
-        { question: '', point: '' }
-      ]
+      confirmation_points: [...prev.confirmation_points, '']
     }));
   };
 
@@ -111,14 +105,8 @@ export default function ReportLost() {
       description: 'Space Gray 14-inch MacBook Pro M2 with matte display and dark case.',
       reward_amount: 2000,
       confirmation_points: [
-        {
-          question: 'What physical mark or flaw is on the hinge/casing?',
-          point: 'Small hairline crack on the right hinge directly next to the power button'
-        },
-        {
-          question: 'What is set on the keyboard palm rest area?',
-          point: 'A tiny blue GitHub Octocat sticker near the right bottom edge'
-        }
+        'Small hairline crack on the right hinge directly next to the power button',
+        'Tiny blue GitHub Octocat sticker on the right palm rest edge'
       ],
       location: 'Central Library 2nd Floor, Table 14',
       latitude: 12.9725,
@@ -171,10 +159,11 @@ export default function ReportLost() {
     setLoading(true);
 
     const validPoints = formData.confirmation_points
-      .filter(p => p.point.trim().length > 0)
+      .map(p => typeof p === 'string' ? p.trim() : (p.point || '').trim())
+      .filter(p => p.length > 0)
       .map(p => ({
-        question: p.question.trim() || 'Confirmation Detail',
-        point: p.point.trim(),
+        question: 'Ownership Confirmation Detail',
+        point: p,
         photo_url: null
       }));
 
@@ -207,6 +196,9 @@ export default function ReportLost() {
 
     try {
       const res = await api.createLostItem(payload);
+      if (res.user && res.auth_token) {
+        setAuthSession(res.user, res.auth_token);
+      }
       localStorage.setItem('last_user_phone', payload.owner_phone);
       localStorage.setItem('saved_profile', JSON.stringify({
         full_name: payload.owner_name,
@@ -380,102 +372,76 @@ export default function ReportLost() {
           </div>
         )}
 
-        {/* Step 2: Ownership Confirmation Details (Up to 3 Questions) */}
+        {/* Step 2: Ownership Confirmation Details (Up to 3 Inputs) */}
         {step === 2 && (
           <div className="form-card">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem' }}>
               <div>
                 <h3>Step 2: Special Ownership Confirmation Details</h3>
                 <p className="field-hint" style={{ color: 'var(--text-secondary)', marginBottom: '1rem' }}>
-                  Provide <strong>1 to 3 special identifying details or confirmation questions</strong> that only the genuine owner knows (e.g. unique scratch, stickers, lock screen wallpaper, internal pocket contents).
+                  Provide <strong>1 to 3 secret identifying details</strong> that only you know (e.g., unique scratch, sticker, wallpaper, inside pocket item, serial prefix).
                   <br />
-                  <span style={{ color: '#059669', fontWeight: 500 }}>
-                    <i className="bi bi-shield-lock"></i> Kept 100% confidential — never revealed to finders or public.
+                  <span style={{ color: '#059669', fontWeight: 600 }}>
+                    <i className="bi bi-shield-lock"></i> 100% Confidential — never revealed to finders or public.
                   </span>
                 </p>
               </div>
               <span className="badge badge-neutral" style={{ fontSize: '0.85rem' }}>
-                {formData.confirmation_points.length} / 3 Details Added
+                {formData.confirmation_points.length} / 3 Details
               </span>
             </div>
 
-            {formData.confirmation_points.map((pt, idx) => (
-              <div 
-                key={idx} 
-                style={{ 
-                  background: 'var(--color-slate-50, #f8fafc)', 
-                  border: '1px solid var(--color-slate-200, #e2e8f0)', 
-                  borderRadius: 'var(--radius-sm, 8px)', 
-                  padding: '1.25rem', 
-                  marginBottom: '1rem' 
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                  <strong style={{ fontSize: '0.95rem' }}>
-                    <i className="bi bi-patch-check-fill" style={{ color: 'var(--color-primary)' }}></i> Confirmation Detail #{idx + 1} {idx === 0 ? '(Required)' : '(Optional)'}
-                  </strong>
-                  {formData.confirmation_points.length > 1 && (
-                    <button 
-                      type="button" 
-                      className="btn btn-outline btn-sm" 
-                      style={{ color: '#dc2626', borderColor: '#fca5a5' }} 
-                      onClick={() => removePoint(idx)}
-                    >
-                      <i className="bi bi-trash"></i> Remove
-                    </button>
-                  )}
-                </div>
-
-                <div className="form-group" style={{ marginBottom: '0.75rem' }}>
-                  <label style={{ fontSize: '0.88rem' }}>Verification Question / Feature Title</label>
-                  <input 
-                    type="text" 
-                    className="form-control" 
-                    placeholder="e.g. What sticker is on the laptop, or what is in the side pocket?" 
-                    value={pt.question} 
-                    onChange={(e) => handlePointChange(idx, 'question', e.target.value)} 
-                  />
-                  
-                  {/* Preset Template Chips */}
-                  <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', marginTop: '0.4rem' }}>
-                    {QUICK_QUESTION_TEMPLATES.map((tpl, tplIdx) => (
-                      <button
-                        key={tplIdx}
-                        type="button"
-                        className="badge"
-                        style={{ 
-                          background: '#e0f2fe', 
-                          color: '#0369a1', 
-                          border: '1px solid #bae6fd', 
-                          cursor: 'pointer', 
-                          padding: '0.25rem 0.5rem',
-                          fontSize: '0.75rem',
-                          fontWeight: 500
-                        }}
-                        onClick={() => handlePointChange(idx, 'question', tpl)}
+            {formData.confirmation_points.map((pt, idx) => {
+              const val = typeof pt === 'string' ? pt : (pt.point || '');
+              return (
+                <div 
+                  key={idx} 
+                  style={{ 
+                    background: 'var(--color-slate-50, #f8fafc)', 
+                    border: '1px solid var(--color-slate-200, #e2e8f0)', 
+                    borderRadius: 'var(--radius-sm, 8px)', 
+                    padding: '1.25rem', 
+                    marginBottom: '1rem' 
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                    <strong style={{ fontSize: '0.95rem' }}>
+                      <i className="bi bi-patch-check-fill" style={{ color: 'var(--color-primary)' }}></i> Confirmation Detail #{idx + 1} {idx === 0 ? '(Required)' : '(Optional)'}
+                    </strong>
+                    {formData.confirmation_points.length > 1 && (
+                      <button 
+                        type="button" 
+                        className="btn btn-outline btn-sm" 
+                        style={{ color: '#dc2626', borderColor: '#fca5a5' }} 
+                        onClick={() => removePoint(idx)}
                       >
-                        + {tpl.split(' ').slice(0, 4).join(' ')}...
+                        <i className="bi bi-trash"></i> Remove
                       </button>
-                    ))}
+                    )}
+                  </div>
+
+                  <div className="form-group" style={{ marginBottom: '0' }}>
+                    <input 
+                      type="text" 
+                      className="form-control" 
+                      placeholder={
+                        idx === 0 
+                          ? "e.g. Small hairline scratch on right hinge directly next to power button" 
+                          : (idx === 1 
+                              ? "e.g. Tiny blue Octocat sticker on right palm rest" 
+                              : "e.g. Kingston 32GB USB drive inside side zip pocket")
+                      }
+                      value={val} 
+                      onChange={(e) => handlePointChange(idx, e.target.value)} 
+                      required={idx === 0}
+                    />
+                    <span className="field-hint" style={{ fontSize: '0.78rem', marginTop: '0.35rem' }}>
+                      During recovery, the finder or desk will verify this exact spot without knowing what is located there.
+                    </span>
                   </div>
                 </div>
-
-                <div className="form-group" style={{ marginBottom: '0' }}>
-                  <label style={{ fontSize: '0.88rem' }}>Confidential Detail / Answer *</label>
-                  <input 
-                    type="text" 
-                    className="form-control" 
-                    placeholder="e.g. Small hairline crack on right hinge directly next to power button" 
-                    value={pt.point} 
-                    onChange={(e) => handlePointChange(idx, 'point', e.target.value)} 
-                    required={idx === 0}
-                  />
-                  <span className="field-hint" style={{ fontSize: '0.78rem' }}>
-                    The finder will be asked to verify this specific zone without disclosing what is located there.
-                  </span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
 
             {formData.confirmation_points.length < 3 && (
               <button 
@@ -496,7 +462,10 @@ export default function ReportLost() {
                 type="button" 
                 className="btn btn-primary" 
                 onClick={() => {
-                  if (!formData.confirmation_points[0].point.trim()) {
+                  const firstVal = typeof formData.confirmation_points[0] === 'string' 
+                    ? formData.confirmation_points[0].trim() 
+                    : (formData.confirmation_points[0]?.point || '').trim();
+                  if (!firstVal) {
                     toast.error('Please provide at least one ownership confirmation detail.');
                   } else {
                     setStep(3);
@@ -677,14 +646,17 @@ export default function ReportLost() {
               <div className="review-row"><span>Description:</span><span>{formData.description}</span></div>
               
               <div className="review-row" style={{ alignItems: 'flex-start' }}>
-                <span>Ownership Confirmation ({formData.confirmation_points.filter(p => p.point).length}):</span>
+                <span>Ownership Details ({formData.confirmation_points.map(p => typeof p === 'string' ? p : (p.point || '')).filter(p => p.trim().length > 0).length}):</span>
                 <div>
-                  {formData.confirmation_points.filter(p => p.point).map((p, i) => (
-                    <div key={i} style={{ marginBottom: '0.35rem' }}>
-                      <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Q{i+1}: {p.question || 'Identifying Feature'}</span>
-                      <div><strong>{p.point}</strong></div>
-                    </div>
-                  ))}
+                  {formData.confirmation_points
+                    .map(p => typeof p === 'string' ? p : (p.point || ''))
+                    .filter(p => p.trim().length > 0)
+                    .map((p, i) => (
+                      <div key={i} style={{ marginBottom: '0.35rem' }}>
+                        <span style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>Detail #{i+1}:</span>
+                        <div><strong>{p}</strong></div>
+                      </div>
+                    ))}
                 </div>
               </div>
 

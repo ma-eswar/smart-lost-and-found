@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { useToast } from '../components/Toast';
+import { useAuth } from '../components/AuthContext';
 
 const DEFAULT_SAMPLE_PHOTO = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='300'><rect width='400' height='300' fill='%23334155'/><text x='200' y='150' fill='%23fff' text-anchor='middle'>Found Item Photo</text></svg>";
 
 export default function ReportFound() {
   const navigate = useNavigate();
   const toast = useToast();
+  const { setAuthSession } = useAuth();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [desks, setDesks] = useState([]);
@@ -161,6 +163,9 @@ export default function ReportFound() {
         ? await api.createDeskFoundItem(payload)
         : await api.createDirectFoundItem(payload);
       
+      if (res.user && res.auth_token) {
+        setAuthSession(res.user, res.auth_token);
+      }
       localStorage.setItem('last_user_phone', payload.finder_phone);
       setSubmittedItem(res);
       toast.success('Found property registered! Continuous reverse matching initiated.');

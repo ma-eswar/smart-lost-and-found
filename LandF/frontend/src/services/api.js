@@ -15,7 +15,19 @@ async function request(endpoint, options = {}) {
     headers
   });
 
-  const data = await response.json();
+  let data;
+  const contentType = response.headers.get('content-type') || '';
+  if (contentType.includes('application/json')) {
+    try {
+      data = await response.json();
+    } catch {
+      data = { message: 'Invalid response format received from server.' };
+    }
+  } else {
+    const text = await response.text();
+    data = { message: text || `Server Error (${response.status})` };
+  }
+
   if (!response.ok) {
     throw new Error(data.detail || data.message || `Request failed (${response.status})`);
   }
@@ -23,6 +35,13 @@ async function request(endpoint, options = {}) {
 }
 
 export const api = {
+  // Authentication
+  requestOtp: (phone) => request('/api/auth/request-otp', { method: 'POST', body: JSON.stringify({ phone }) }),
+  verifyOtp: (phone, code) => request('/api/auth/verify-otp', { method: 'POST', body: JSON.stringify({ phone, code }) }),
+  login: (payload) => request('/api/auth/login', { method: 'POST', body: JSON.stringify(payload) }),
+  register: (payload) => request('/api/auth/register', { method: 'POST', body: JSON.stringify(payload) }),
+  getMe: (token) => request('/api/auth/me', { headers: { 'Authorization': `Bearer ${token}` } }),
+
   // Desks
   getDesks: () => request('/api/desks'),
   getDesk: (id) => request(`/api/desks/${id}`),
@@ -50,6 +69,10 @@ export const api = {
 
   // Matching Engine
   evaluateMatches: (lostItemId, pin = 'admin123') => request(`/api/matching/evaluate/${lostItemId}`, {
+    method: 'POST',
+    headers: { 'x-admin-pin': pin }
+  }),
+  evaluateFoundMatches: (foundItemId, pin = 'admin123') => request(`/api/matching/evaluate-found/${foundItemId}`, {
     method: 'POST',
     headers: { 'x-admin-pin': pin }
   }),
@@ -81,5 +104,11 @@ export const api = {
   getAdminFoundItems: (pin) => request('/api/admin/found-items', { headers: { 'x-admin-pin': pin } }),
   getAdminEscrowRecords: (pin) => request('/api/admin/escrow-records', { headers: { 'x-admin-pin': pin } }),
   getArchivedItems: (pin) => request('/api/admin/archived-items', { headers: { 'x-admin-pin': pin } }),
+  getPendingApprovals: (pin = 'admin123') => request('/api/admin/pending-approvals', { headers: { 'x-admin-pin': pin } }),
+  decideApproval: (evalId, decision, notes = '', pin = 'admin123') => request(`/api/admin/approvals/${evalId}/decide`, {
+    method: 'POST',
+    headers: { 'x-admin-pin': pin },
+    body: JSON.stringify({ decision, notes })
+  }),
   seedDemo: (pin = 'admin123') => request('/api/admin/seed-demo', { method: 'POST', headers: { 'x-admin-pin': pin } })
 };

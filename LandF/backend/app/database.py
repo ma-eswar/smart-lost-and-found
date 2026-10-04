@@ -8,9 +8,11 @@ from app.config import DB_DIR
 DB_PATH = DB_DIR / "lost_and_found.db"
 
 def get_db_connection():
-    conn = sqlite3.connect(str(DB_PATH))
+    conn = sqlite3.connect(str(DB_PATH), timeout=30.0)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
+    conn.execute("PRAGMA journal_mode = WAL")
+    conn.execute("PRAGMA busy_timeout = 30000")
     return conn
 
 def ensure_column_exists(cursor, table: str, column: str, col_type: str):

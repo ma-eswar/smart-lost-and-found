@@ -503,48 +503,66 @@ def run_matching_pipeline_for_lost_item(lost_item_id: str) -> List[Dict[str, Any
             now_str
         ))
 
-        # Auto-create verification probe and send notifications for high confidence (>= 0.70)
-        if cand["composite_score"] >= 0.70:
+        # Auto-create dynamic AI verification probe and send notifications for candidate matches (score >= 0.40 or top rank)
+        if cand["composite_score"] >= 0.40 or rank == 1:
             cursor.execute("SELECT id FROM verification_probes WHERE lost_item_id = ? AND found_item_id = ?", (lost_item_id, cand["found_id"]))
             existing_probe = cursor.fetchone()
             
             if not existing_probe:
                 try:
-                    create_verification_probe_for_match(lost_item_id, cand["found_id"], secret_index=0)
+                    create_verification_probe_for_match(
+                        lost_item_id, 
+                        cand["found_id"], 
+                        secret_index=0,
+                        db_conn=conn,
+                        db_cursor=cursor
+                    )
                     v_status = "PROBE_SENT"
                     cursor.execute("UPDATE match_evaluations SET verification_status = 'PROBE_SENT', updated_at = ? WHERE id = ?", (now_str, eval_id))
                 except Exception as e:
                     print(f"Auto probe skipped: {e}")
 
-            # Notify Lost Item Claimant
-            notif_id_owner = generate_intake_id("NOTIF")
+            # Notify Lost Item Claimant (Deduplicated)
             cursor.execute("""
-            INSERT INTO notifications (id, user_id, phone, type, title, message, action_url, is_read, created_at)
-            VALUES (?, ?, ?, 'MATCH_FOUND', ?, ?, ?, 0, ?)
-            """, (
-                notif_id_owner,
-                lost["user_id"],
-                lost["owner_phone"],
-                "Potential Match Detected!",
-                f"A matching '{cand['found_item']['object_name']}' was registered with {int(cand['composite_score']*100)}% visual & spatial confidence. Safe verification challenge dispatched.",
-                f"/status?q={lost['owner_phone']}",
-                now_str
-            ))
+            SELECT id FROM notifications 
+            WHERE phone = ? AND type = 'MATCH_FOUND' AND message LIKE ?
+            """, (lost["owner_phone"], f"%{cand['found_item']['object_name']}%"))
+            if not cursor.fetchone():
+                notif_id_owner = generate_intake_id("NOTIF")
+                cursor.execute("""
+                INSERT INTO notifications (id, user_id, phone, type, title, message, action_url, is_read, created_at)
+                VALUES (?, ?, ?, 'MATCH_FOUND', ?, ?, ?, 0, ?)
+                """, (
+                    notif_id_owner,
+                    lost["user_id"],
+                    lost["owner_phone"],
+                    "Potential Match Detected!",
+                    f"A matching '{cand['found_item']['object_name']}' was registered with {int(cand['composite_score']*100)}% visual & spatial confidence. Safe verification challenge dispatched.",
+                    f"/status?q={lost['owner_phone']}",
+                    now_str
+                ))
 
-            # Notify Finder for verification photo
-            notif_id_finder = generate_intake_id("NOTIF")
-            cursor.execute("""
-            INSERT INTO notifications (id, user_id, phone, type, title, message, action_url, is_read, created_at)
-            VALUES (?, ?, ?, 'VERIFICATION_PROBE_REQUESTED', ?, ?, ?, 0, ?)
-            """, (
-                notif_id_finder,
-                cand["found_item"].get("user_id"),
-                cand["found_item"].get("finder_phone"),
-                "Photo Check Requested for Deposit",
-                f"A potential owner for '{cand['found_item']['object_name']}' is checking records. Please submit a close-up verification photo.",
-                f"/status?q={cand['found_item']['finder_phone']}",
-                now_str
-            ))
+            # Notify Finder for verification photo (Deduplicated)
+            f_phone = cand["found_item"].get("finder_phone")
+            if f_phone:
+                cursor.execute("""
+                SELECT id FROM notifications 
+                WHERE phone = ? AND type = 'VERIFICATION_PROBE_REQUESTED' AND message LIKE ?
+                """, (f_phone, f"%{cand['found_item']['object_name']}%"))
+                if not cursor.fetchone():
+                    notif_id_finder = generate_intake_id("NOTIF")
+                    cursor.execute("""
+                    INSERT INTO notifications (id, user_id, phone, type, title, message, action_url, is_read, created_at)
+                    VALUES (?, ?, ?, 'VERIFICATION_PROBE_REQUESTED', ?, ?, ?, 0, ?)
+                    """, (
+                        notif_id_finder,
+                        cand["found_item"].get("user_id"),
+                        f_phone,
+                        "Photo Check Requested for Deposit",
+                        f"A potential owner for '{cand['found_item']['object_name']}' is checking records. Please submit a close-up verification photo.",
+                        f"/status?q={f_phone}",
+                        now_str
+                    ))
 
         persisted_results.append({
             "evaluation_id": eval_id,

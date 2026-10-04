@@ -2,8 +2,8 @@ import json
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from datetime import datetime
 from app.database import get_db_connection
-from app.schemas import LostItemCreate, LostItemResponse
-from app.security import hash_identifier, get_last_4, generate_access_token, generate_intake_id
+from app.schemas import LostItemCreate, LostItemResponse, UserResponse
+from app.security import hash_identifier, get_last_4, generate_access_token, generate_intake_id, hash_password, create_access_token, normalize_phone
 from app.services.matching_pipeline import run_matching_pipeline_for_lost_item
 from app.services.storage import save_base64_image
 
@@ -37,8 +37,55 @@ def create_lost_item(payload: LostItemCreate, background_tasks: BackgroundTasks)
     govt_id_hash = hash_identifier(payload.institutional_id)
     govt_id_last4 = get_last_4(payload.institutional_id)
     
-    escrow_status = "PLEDGED" if payload.reward_amount > 0 else "NO_REWARD"
+    escrow_status = "PLEDGED" if float(payload.reward_amount) > 0 else "NONE"
     
+    # Resolve or auto-create User Account
+    user_id = payload.user_id
+    email_clean = payload.owner_email.strip().lower()
+    raw_phone = payload.owner_phone.strip()
+    norm_phone = normalize_phone(raw_phone)
+    
+    cursor.execute("SELECT id, full_name, email, phone, role, created_at FROM users WHERE phone = ? OR phone LIKE ? OR lower(email) = ?", (raw_phone, f"%{norm_phone}%" if norm_phone else raw_phone, email_clean))
+    user_row = cursor.fetchone()
+    
+    if user_row:
+        user_id = user_row["id"]
+        user_obj = UserResponse(
+            id=user_row["id"],
+            full_name=user_row["full_name"],
+            email=user_row["email"],
+            phone=user_row["phone"],
+            role=user_row["role"],
+            created_at=user_row["created_at"]
+        )
+    else:
+        user_id = generate_intake_id("USER")
+        pwd_raw = payload.password if payload.password else "123456"
+        pwd_hash = hash_password(pwd_raw)
+        cursor.execute("""
+        INSERT INTO users (id, full_name, email, phone, password_hash, role, created_at)
+        VALUES (?, ?, ?, ?, ?, 'user', ?)
+        """, (user_id, payload.owner_name.strip(), email_clean, raw_phone, pwd_hash, now_str))
+        user_obj = UserResponse(
+            id=user_id,
+            full_name=payload.owner_name.strip(),
+            email=email_clean,
+            phone=raw_phone,
+            role="user",
+            created_at=now_str
+        )
+        
+    auth_token = create_access_token({"sub": user_id, "email": email_clean, "name": payload.owner_name.strip()})
+
+    # Archive/replace prior active test listing for the same phone & product name
+    cursor.execute("""
+    UPDATE lost_items 
+    SET status = 'ARCHIVED', is_archived = 1, updated_at = ?
+    WHERE (owner_phone = ? OR owner_phone LIKE ?) 
+      AND lower(product_name) = lower(?) 
+      AND status != 'RESOLVED'
+    """, (now_str, raw_phone, f"%{norm_phone}%" if norm_phone else raw_phone, payload.product_name.strip()))
+
     # Insert lost item
     cursor.execute("""
     INSERT INTO lost_items (
@@ -58,7 +105,7 @@ def create_lost_item(payload: LostItemCreate, background_tasks: BackgroundTasks)
     )
     """, (
         item_id,
-        payload.user_id,
+        user_id,
         payload.product_name.strip(),
         payload.category.strip(),
         payload.description.strip(),
@@ -132,7 +179,9 @@ def create_lost_item(payload: LostItemCreate, background_tasks: BackgroundTasks)
         last_seen_time=payload.last_seen_time,
         status="REPORTED",
         access_token=access_token,
-        created_at=now_str
+        created_at=now_str,
+        auth_token=auth_token,
+        user=user_obj
     )
 
 @router.get("/{item_id}")

@@ -19,7 +19,7 @@ from app.routers import (
 )
 
 app = FastAPI(
-    title="AegisRecover | Smart Lost & Found Platform",
+    title="SafeRecover | Smart Lost & Found Platform",
     description="Production-grade Double-Blind Smart Lost & Found Platform with 5-Stage Matching, Autonomous Blind Verification Probes, Escrow, and Physical Handover OTP",
     version="2.0.0"
 )
@@ -61,7 +61,7 @@ async def upload_file(file: UploadFile = File(...)):
 def health_check():
     return {
         "status": "ok",
-        "system": "AegisRecover Smart Lost & Found Platform",
+        "system": "SafeRecover Smart Lost & Found Platform",
         "version": "2.0.0",
         "double_blind_protection": "ACTIVE"
     }

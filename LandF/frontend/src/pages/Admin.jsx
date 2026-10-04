@@ -14,7 +14,9 @@ export default function Admin() {
   const [foundItems, setFoundItems] = useState([]);
   const [escrowRecords, setEscrowRecords] = useState([]);
   const [desks, setDesks] = useState([]);
+  const [pendingApprovals, setPendingApprovals] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [decidingId, setDecidingId] = useState(null);
 
   // Handover state
   const [handoverCode, setHandoverCode] = useState('');
@@ -59,20 +61,39 @@ export default function Admin() {
   const fetchAdminData = async (currentPin = pin) => {
     setLoading(true);
     try {
-      const [lost, found, escrow, deskList] = await Promise.all([
+      const [lost, found, escrow, deskList, approvals] = await Promise.all([
         api.getAdminLostItems(currentPin),
         api.getAdminFoundItems(currentPin),
         api.getAdminEscrowRecords(currentPin),
-        api.getDesks()
+        api.getDesks(),
+        api.getPendingApprovals(currentPin).catch(() => [])
       ]);
       setLostItems(lost);
       setFoundItems(found);
       setEscrowRecords(escrow);
       setDesks(deskList);
+      setPendingApprovals(approvals || []);
     } catch (err) {
       toast.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDecideApproval = async (evalId, decision) => {
+    setDecidingId(evalId);
+    try {
+      const res = await api.decideApproval(evalId, decision, '', pin);
+      if (decision === 'APPROVED') {
+        toast.success(`Handover Authorized! 6-digit passcode: ${res.passcode} issued to owner.`);
+      } else {
+        toast.info(`Match verification marked as ${decision}.`);
+      }
+      fetchAdminData();
+    } catch (err) {
+      toast.error(err);
+    } finally {
+      setDecidingId(null);
     }
   };
 
@@ -100,6 +121,7 @@ export default function Admin() {
         const updatedResults = await api.getMatchResults(evaluatingId, pin);
         setMatchResults(updatedResults);
       }
+      fetchAdminData();
     } catch (err) {
       toast.error(err);
     }
@@ -113,6 +135,7 @@ export default function Admin() {
         const updatedResults = await api.getMatchResults(evaluatingId, pin);
         setMatchResults(updatedResults);
       }
+      fetchAdminData();
     } catch (err) {
       toast.error(err);
     }
@@ -201,8 +224,20 @@ export default function Admin() {
         </div>
       </div>
 
-      {/* 2. 5 Admin Tabs */}
+      {/* 2. 6 Admin Tabs */}
       <div className="admin-tab-bar">
+        <button
+          type="button"
+          className={`admin-tab-btn ${activeTab === 'approvals' ? 'active' : ''}`}
+          onClick={() => setActiveTab('approvals')}
+          style={{
+            background: activeTab === 'approvals' ? undefined : (pendingApprovals.filter(a => a.admin_decision !== 'APPROVED').length > 0 ? '#fef3c7' : undefined),
+            color: activeTab === 'approvals' ? undefined : (pendingApprovals.filter(a => a.admin_decision !== 'APPROVED').length > 0 ? '#92400e' : undefined),
+            fontWeight: 700
+          }}
+        >
+          <i className="bi bi-patch-check-fill"></i> Final Approvals ({pendingApprovals.filter(a => a.admin_decision !== 'APPROVED').length})
+        </button>
         <button
           type="button"
           className={`admin-tab-btn ${activeTab === 'lost' ? 'active' : ''}`}
@@ -239,6 +274,246 @@ export default function Admin() {
           <i className="bi bi-building"></i> Partner Desks ({desks.length})
         </button>
       </div>
+
+      {/* Tab 0: Final Handover Approvals (Admin Verification Sign-Off) */}
+      {activeTab === 'approvals' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          <div className="form-card" style={{ background: 'linear-gradient(to right, #f8fafc, #eff6ff)', border: '1px solid #bfdbfe', padding: '1.25rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <div style={{ width: '42px', height: '42px', borderRadius: '50%', background: 'var(--color-primary)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.3rem' }}>
+                <i className="bi bi-shield-check"></i>
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800 }}>Admin Final Verification Sign-Off</h3>
+                <p style={{ margin: '0.15rem 0 0 0', fontSize: '0.84rem', color: 'var(--text-secondary)' }}>
+                  Review comprehensive dossiers of claimant and founder identities, secret owner proofs, and AI Agent vision verification work before authorizing physical release.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {pendingApprovals.length === 0 ? (
+            <div className="form-card text-center" style={{ padding: '3rem 1rem' }}>
+              <i className="bi bi-patch-check" style={{ fontSize: '2.5rem', color: 'var(--color-slate-400)' }}></i>
+              <h4 style={{ marginTop: '0.75rem', fontWeight: 700 }}>No Pending Approvals</h4>
+              <p className="text-muted small">All candidate matches are currently signed off or in search progress.</p>
+            </div>
+          ) : (
+            pendingApprovals.map((appr) => {
+              const isApproved = appr.admin_decision === 'APPROVED';
+              const isRejected = appr.admin_decision === 'REJECTED';
+              const probe = appr.probe;
+              const hasPhoto = probe && probe.finder_response_photo;
+
+              return (
+                <div
+                  key={appr.evaluation_id}
+                  className="form-card listing-card"
+                  style={{
+                    border: isApproved ? '2px solid #86efac' : isRejected ? '1.5px solid #fca5a5' : '1.5px solid #fcd34d',
+                    background: isApproved ? '#fafffa' : '#ffffff',
+                    padding: '1.5rem'
+                  }}
+                >
+                  {/* Top Summary Banner */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.75rem', paddingBottom: '1rem', borderBottom: '1px solid #e2e8f0', marginBottom: '1.25rem' }}>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        <span className={`badge ${isApproved ? 'badge-verified' : isRejected ? 'badge-lost' : 'badge-neutral'}`} style={{ fontSize: '0.82rem' }}>
+                          <i className={`bi ${isApproved ? 'bi-check-circle-fill' : isRejected ? 'bi-x-circle-fill' : 'bi-hourglass-split'}`}></i>
+                          {isApproved ? 'Admin Approved & Authorized' : isRejected ? 'Rejected by Admin' : 'Pending Admin Sign-Off'}
+                        </span>
+                        <span className="badge badge-verified" style={{ fontSize: '0.82rem' }}>
+                          <i className="bi bi-cpu"></i> Match Confidence: {Math.round(appr.scores.composite_score * 100)}%
+                        </span>
+                      </div>
+                      <h3 style={{ fontSize: '1.35rem', margin: '0.4rem 0 0.15rem 0', fontWeight: 800 }}>
+                        {appr.lost_item.product_name} <span style={{ color: '#94a3b8' }}>⟷</span> {appr.found_item.object_name}
+                      </h3>
+                      <span className="field-hint">
+                        Evaluation ID: <code>{appr.evaluation_id}</code> • Lost Report: <code>{appr.lost_item.id}</code> • Deposit: <code>{appr.found_item.id}</code>
+                      </span>
+                    </div>
+
+                    <div>
+                      {isApproved ? (
+                        <div style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: '6px', padding: '0.5rem 0.85rem', textAlign: 'right' }}>
+                          <span style={{ fontSize: '0.75rem', color: '#065f46', textTransform: 'uppercase', fontWeight: 700, display: 'block' }}>Release Passcode</span>
+                          <strong style={{ fontSize: '1.2rem', color: '#047857', letterSpacing: '0.1em' }}>{appr.active_passcode || '123456'}</strong>
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                          <button
+                            type="button"
+                            className="btn btn-success btn-sm"
+                            onClick={() => handleDecideApproval(appr.evaluation_id, 'APPROVED')}
+                            disabled={decidingId === appr.evaluation_id}
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontWeight: 700 }}
+                          >
+                            <i className="bi bi-check-circle-fill"></i> Approve &amp; Release Passcode
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-outline btn-sm"
+                            onClick={() => handleDecideApproval(appr.evaluation_id, 'REJECTED')}
+                            disabled={decidingId === appr.evaluation_id}
+                            style={{ color: 'var(--color-rose)', borderColor: '#fca5a5' }}
+                          >
+                            <i className="bi bi-x-circle"></i> Reject
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 3-Column Dossier Grid */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.25rem' }}>
+                    {/* Column 1: Owner / Claimant Dossier */}
+                    <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '1.1rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#1e293b', fontWeight: 800, marginBottom: '0.75rem', fontSize: '0.95rem' }}>
+                        <i className="bi bi-person-fill" style={{ color: 'var(--color-primary)' }}></i>
+                        <span>1. Claimant (Owner) Dossier</span>
+                      </div>
+
+                      <div style={{ fontSize: '0.86rem', display: 'flex', flexDirection: 'column', gap: '0.35rem', color: '#334155' }}>
+                        <div><strong>Claimant Name:</strong> {appr.lost_item.owner_name}</div>
+                        <div><strong>Phone:</strong> {appr.lost_item.owner_phone}</div>
+                        <div><strong>Email:</strong> {appr.lost_item.owner_email}</div>
+                        <div><strong>Address:</strong> {appr.lost_item.residential_address}</div>
+                        <div><strong>Govt ID Last 4:</strong> <code>XXXX-XXXX-{appr.lost_item.govt_id_last4}</code></div>
+                        <div><strong>Last Seen:</strong> {appr.lost_item.last_seen_location}</div>
+                        {appr.lost_item.reward_amount > 0 && (
+                          <div><strong>Pledged Reward:</strong> <span style={{ color: '#059669', fontWeight: 700 }}>₹{appr.lost_item.reward_amount}</span></div>
+                        )}
+                      </div>
+
+                      {/* Owner Confidential Proof Box */}
+                      <div style={{ marginTop: '0.85rem', background: '#fffbeb', border: '1px solid #fef08a', borderRadius: '6px', padding: '0.75rem' }}>
+                        <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#92400e', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block', marginBottom: '0.25rem' }}>
+                          <i className="bi bi-shield-lock-fill"></i> Confidential Owner Proof:
+                        </span>
+                        {appr.lost_item.secret_points && appr.lost_item.secret_points.length > 0 ? (
+                          appr.lost_item.secret_points.map((sp, idx) => (
+                            <div key={idx} style={{ fontSize: '0.84rem', color: '#78350f', fontWeight: 600, marginTop: '0.2rem' }}>
+                              • "{typeof sp === 'string' ? sp : (sp.point || JSON.stringify(sp))}"
+                            </div>
+                          ))
+                        ) : (
+                          <div style={{ fontSize: '0.82rem', color: '#92400e' }}>
+                            • "{appr.probe?.secret_point_text || 'Physical flaw / mark specified during intake'}"
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Column 2: Founder / Finder Dossier */}
+                    <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '1.1rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#1e293b', fontWeight: 800, marginBottom: '0.75rem', fontSize: '0.95rem' }}>
+                        <i className="bi bi-box-seam-fill" style={{ color: 'var(--color-emerald)' }}></i>
+                        <span>2. Founder (Finder) Dossier</span>
+                      </div>
+
+                      <div style={{ fontSize: '0.86rem', display: 'flex', flexDirection: 'column', gap: '0.35rem', color: '#334155' }}>
+                        <div><strong>Finder Name:</strong> {appr.found_item.finder_name}</div>
+                        <div><strong>Phone:</strong> {appr.found_item.finder_phone}</div>
+                        <div><strong>Email:</strong> {appr.found_item.finder_email}</div>
+                        <div><strong>Found At:</strong> {appr.found_item.found_location}</div>
+                        <div><strong>Custody Mode:</strong> <span className="badge badge-neutral" style={{ fontSize: '0.7rem' }}>{appr.found_item.submission_type}</span></div>
+                        <div style={{ marginTop: '0.25rem' }}>
+                          <strong>Escrow Payout UPI:</strong> <code>{appr.found_item.finder_upi_id}</code>
+                        </div>
+                      </div>
+
+                      {/* Primary Deposit Photo */}
+                      {appr.found_item.primary_photo && (
+                        <div style={{ marginTop: '0.85rem' }}>
+                          <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '0.25rem' }}>
+                            Intake Deposit Photo:
+                          </span>
+                          <img
+                            src={appr.found_item.primary_photo}
+                            alt="Found deposit"
+                            style={{ maxHeight: '100px', width: '100%', objectFit: 'contain', background: '#0f172a', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Column 3: AI Agent Forensic Verification Work */}
+                    <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '1.1rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#1e293b', fontWeight: 800, fontSize: '0.95rem' }}>
+                          <i className="bi bi-robot" style={{ color: 'var(--color-primary)' }}></i>
+                          <span>3. AI Agent Inspection</span>
+                        </div>
+                        {probe && (
+                          <span className={`badge ${probe.probe_status === 'VERIFIED' ? 'badge-verified' : 'badge-neutral'}`} style={{ fontSize: '0.72rem' }}>
+                            {probe.probe_status}
+                          </span>
+                        )}
+                      </div>
+
+                      {probe ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.85rem' }}>
+                          <div>
+                            <strong style={{ color: '#1e293b' }}>Target Inspection Zone:</strong>
+                            <div style={{ color: '#d97706', fontWeight: 700 }}>
+                              <i className="bi bi-crosshair"></i> {probe.target_area}
+                            </div>
+                          </div>
+
+                          <div style={{ background: '#ffffff', padding: '0.5rem', borderRadius: '4px', border: '1px solid #e2e8f0', color: '#475569', fontSize: '0.8rem', fontStyle: 'italic' }}>
+                            "{probe.neutral_prompt}"
+                          </div>
+
+                          {/* Finder's Uploaded Verification Photo */}
+                          {hasPhoto ? (
+                            <div>
+                              <strong style={{ fontSize: '0.78rem', color: '#334155', display: 'block', marginBottom: '0.2rem' }}>
+                                Finder's Submitted Verification Photo:
+                              </strong>
+                              <img
+                                src={probe.finder_response_photo}
+                                alt="Finder verification probe"
+                                style={{ maxHeight: '110px', width: '100%', objectFit: 'contain', background: '#09090b', borderRadius: '6px', border: '1px solid #94a3b8' }}
+                              />
+                              {probe.finder_notes && (
+                                <div style={{ fontSize: '0.78rem', color: '#475569', marginTop: '0.25rem' }}>
+                                  <strong>Finder Notes:</strong> "{probe.finder_notes}"
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div style={{ padding: '0.5rem', background: '#fffbeb', border: '1px solid #fef08a', borderRadius: '4px', color: '#92400e', fontSize: '0.78rem' }}>
+                              <i className="bi bi-hourglass-split"></i> Awaiting verification image from finder.
+                            </div>
+                          )}
+
+                          {/* AI Reasoning Text */}
+                          {probe.agent_analysis_reasoning && (
+                            <div style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: '6px', padding: '0.6rem', marginTop: '0.25rem' }}>
+                              <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#065f46', textTransform: 'uppercase', display: 'block', marginBottom: '0.15rem' }}>
+                                AI Forensic Reasoning ({Math.round((probe.agent_verification_score || 0.95) * 100)}%):
+                              </span>
+                              <p style={{ margin: 0, fontSize: '0.79rem', color: '#047857', lineHeight: 1.35 }}>
+                                {probe.agent_analysis_reasoning}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div style={{ color: '#64748b', fontSize: '0.84rem', padding: '1rem 0' }}>
+                          No blind challenge probe generated yet.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
 
       {/* Tab 1: Lost Reports */}
       {activeTab === 'lost' && (

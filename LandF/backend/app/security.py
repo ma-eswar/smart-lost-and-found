@@ -154,3 +154,20 @@ def generate_intake_id(prefix: str = "REC") -> str:
 def generate_otp() -> str:
     """Generates random 6-digit numeric string."""
     return f"{secrets.randbelow(900000) + 100000}"
+
+
+def normalize_phone(raw_phone: str) -> str:
+    """
+    Normalizes phone numbers so '+91 93924 57668', '9392457668', '09392457668', '+919392457668'
+    all evaluate to the identical 10-digit clean standard string (e.g. '9392457668').
+    """
+    if not raw_phone:
+        return ""
+    import re
+    digits = re.sub(r"\D", "", str(raw_phone))
+    if len(digits) == 12 and digits.startswith("91"):
+        digits = digits[2:]
+    elif len(digits) == 11 and digits.startswith("0"):
+        digits = digits[1:]
+    return digits
+

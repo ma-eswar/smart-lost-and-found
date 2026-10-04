@@ -2,8 +2,8 @@ import json
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from datetime import datetime
 from app.database import get_db_connection
-from app.schemas import FoundItemDeskCreate, FoundItemDirectCreate, FoundItemResponse
-from app.security import generate_access_token, generate_intake_id
+from app.schemas import FoundItemDeskCreate, FoundItemDirectCreate, FoundItemResponse, UserResponse
+from app.security import generate_access_token, generate_intake_id, hash_password, create_access_token, normalize_phone
 from app.services.matching_pipeline import run_matching_pipeline_for_lost_item, run_matching_pipeline_for_found_item
 from app.services.storage import save_base64_image
 
@@ -15,7 +15,6 @@ def auto_match_for_new_found_item(found_id: str):
         run_matching_pipeline_for_found_item(found_id)
     except Exception as exc:
         print(f"Auto-match error for found item {found_id}: {exc}")
-
 
 
 @router.post("/desk", response_model=FoundItemResponse)
@@ -51,6 +50,53 @@ def create_desk_found_item(payload: FoundItemDeskCreate, background_tasks: Backg
     
     is_verified_samaritan = bool(payload.finder_roll_or_id and len(payload.finder_roll_or_id.strip()) > 0)
     
+    # Resolve or auto-create user account
+    user_id = payload.user_id
+    email_clean = payload.finder_email.strip().lower()
+    raw_phone = payload.finder_phone.strip()
+    norm_phone = normalize_phone(raw_phone)
+    
+    cursor.execute("SELECT id, full_name, email, phone, role, created_at FROM users WHERE phone = ? OR phone LIKE ? OR lower(email) = ?", (raw_phone, f"%{norm_phone}%" if norm_phone else raw_phone, email_clean))
+    user_row = cursor.fetchone()
+    
+    if user_row:
+        user_id = user_row["id"]
+        user_obj = UserResponse(
+            id=user_row["id"],
+            full_name=user_row["full_name"],
+            email=user_row["email"],
+            phone=user_row["phone"],
+            role=user_row["role"],
+            created_at=user_row["created_at"]
+        )
+    else:
+        user_id = generate_intake_id("USER")
+        pwd_raw = payload.password if payload.password else "123456"
+        pwd_hash = hash_password(pwd_raw)
+        cursor.execute("""
+        INSERT INTO users (id, full_name, email, phone, password_hash, role, created_at)
+        VALUES (?, ?, ?, ?, ?, 'user', ?)
+        """, (user_id, payload.finder_name.strip(), email_clean, raw_phone, pwd_hash, now_str))
+        user_obj = UserResponse(
+            id=user_id,
+            full_name=payload.finder_name.strip(),
+            email=email_clean,
+            phone=raw_phone,
+            role="user",
+            created_at=now_str
+        )
+        
+    auth_token = create_access_token({"sub": user_id, "email": email_clean, "name": payload.finder_name.strip()})
+
+    # Archive/replace prior active test listing for the same phone & object name
+    cursor.execute("""
+    UPDATE found_items 
+    SET status = 'ARCHIVED', is_archived = 1, updated_at = ?
+    WHERE (finder_phone = ? OR finder_phone LIKE ?) 
+      AND lower(object_name) = lower(?) 
+      AND status != 'RESOLVED'
+    """, (now_str, raw_phone, f"%{norm_phone}%" if norm_phone else raw_phone, payload.object_name.strip()))
+
     cursor.execute("""
     INSERT INTO found_items (
         id, user_id, submission_type, desk_id, desk_intake_receipt_id,
@@ -69,7 +115,7 @@ def create_desk_found_item(payload: FoundItemDeskCreate, background_tasks: Backg
     )
     """, (
         item_id,
-        payload.user_id,
+        user_id,
         payload.desk_id,
         receipt_id,
         payload.object_name.strip(),
@@ -120,7 +166,9 @@ def create_desk_found_item(payload: FoundItemDeskCreate, background_tasks: Backg
         is_verified_samaritan=is_verified_samaritan,
         status="INTAKE_RECEIVED",
         access_token=access_token,
-        created_at=now_str
+        created_at=now_str,
+        auth_token=auth_token,
+        user=user_obj
     )
 
 @router.post("/direct", response_model=FoundItemResponse)
@@ -143,6 +191,53 @@ def create_direct_found_item(payload: FoundItemDirectCreate, background_tasks: B
             
     is_verified_samaritan = bool(payload.finder_roll_or_id and len(payload.finder_roll_or_id.strip()) > 0)
     
+    # Resolve or auto-create user account
+    user_id = payload.user_id
+    email_clean = payload.finder_email.strip().lower()
+    raw_phone = payload.finder_phone.strip()
+    norm_phone = normalize_phone(raw_phone)
+    
+    cursor.execute("SELECT id, full_name, email, phone, role, created_at FROM users WHERE phone = ? OR phone LIKE ? OR lower(email) = ?", (raw_phone, f"%{norm_phone}%" if norm_phone else raw_phone, email_clean))
+    user_row = cursor.fetchone()
+    
+    if user_row:
+        user_id = user_row["id"]
+        user_obj = UserResponse(
+            id=user_row["id"],
+            full_name=user_row["full_name"],
+            email=user_row["email"],
+            phone=user_row["phone"],
+            role=user_row["role"],
+            created_at=user_row["created_at"]
+        )
+    else:
+        user_id = generate_intake_id("USER")
+        pwd_raw = payload.password if payload.password else "123456"
+        pwd_hash = hash_password(pwd_raw)
+        cursor.execute("""
+        INSERT INTO users (id, full_name, email, phone, password_hash, role, created_at)
+        VALUES (?, ?, ?, ?, ?, 'user', ?)
+        """, (user_id, payload.finder_name.strip(), email_clean, raw_phone, pwd_hash, now_str))
+        user_obj = UserResponse(
+            id=user_id,
+            full_name=payload.finder_name.strip(),
+            email=email_clean,
+            phone=raw_phone,
+            role="user",
+            created_at=now_str
+        )
+        
+    auth_token = create_access_token({"sub": user_id, "email": email_clean, "name": payload.finder_name.strip()})
+
+    # Archive/replace prior active test listing for the same phone & object name
+    cursor.execute("""
+    UPDATE found_items 
+    SET status = 'ARCHIVED', is_archived = 1, updated_at = ?
+    WHERE (finder_phone = ? OR finder_phone LIKE ?) 
+      AND lower(object_name) = lower(?) 
+      AND status != 'RESOLVED'
+    """, (now_str, raw_phone, f"%{norm_phone}%" if norm_phone else raw_phone, payload.object_name.strip()))
+
     cursor.execute("""
     INSERT INTO found_items (
         id, user_id, submission_type, desk_id, desk_intake_receipt_id,
@@ -161,7 +256,7 @@ def create_direct_found_item(payload: FoundItemDirectCreate, background_tasks: B
     )
     """, (
         item_id,
-        payload.user_id,
+        user_id,
         payload.object_name.strip(),
         payload.category.strip(),
         payload.description.strip(),
@@ -210,5 +305,7 @@ def create_direct_found_item(payload: FoundItemDirectCreate, background_tasks: B
         is_verified_samaritan=is_verified_samaritan,
         status="IN_CUSTODY",
         access_token=access_token,
-        created_at=now_str
+        created_at=now_str,
+        auth_token=auth_token,
+        user=user_obj
     )
