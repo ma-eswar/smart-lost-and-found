@@ -3,19 +3,76 @@ import json
 import re
 from datetime import datetime
 from typing import Dict, Any, Tuple, Optional
+from pydantic import BaseModel, Field
 from app.database import get_db_connection
 from app.security import generate_intake_id
+
+# Try importing the modern Google GenAI client (SDK >= 1.0.0)
+try:
+    from google import genai
+    from google.genai import types
+    gemini_key = os.getenv("GEMINI_API_KEY")
+    genai_client = genai.Client(api_key=gemini_key) if gemini_key else None
+except Exception:
+    genai_client = None
+
+# Active, verified working Google AI Studio model
+ACTIVE_MODEL = "gemini-2.5-flash"
+
+
+class ProbePromptOutput(BaseModel):
+    target_area: str = Field(description="Name of the physical component or region to inspect, e.g. 'Display hinge and power button frame'")
+    neutral_prompt: str = Field(description="Neutral, polite instruction asking the finder to photograph that area without mentioning any defect")
 
 
 def generate_neutral_probe_prompt(secret_point: str, item_category: str, product_name: str = "") -> Tuple[str, str]:
     """
-    Transforms owner's secret proof into a simple, natural English photo verification task.
+    AI Question Parser:
+    Converts confidential owner evidence into a neutral photograph request for the finder.
     Anti-leakage principle: Discloses only the target area, NEVER revealing the secret mark/flaw.
     """
-    secret_lower = (secret_point or "").lower().strip()
     item_title = product_name.strip() if product_name else (item_category.strip() if item_category else "item")
 
-    # 1. Logo / Apple logo / Decal / Emblem
+    # 1. Use Live Working AI Model if API key is present
+    if genai_client:
+        try:
+            sys_instruction = (
+                "You are an Anti-Fraud Verification Agent for a Lost & Found platform. "
+                "The owner provided a secret identifying flaw or marking. "
+                "Your job is to identify ONLY the general physical location or component on the item, "
+                "and formulate a neutral, polite photo request for the finder.\n"
+                "CRITICAL PRIVACY RULE: NEVER mention the secret flaw itself (e.g., crack, scratch, sticker, dent, stain, engraving, notch). "
+                "Only ask for a focused photo of that specific component/area."
+            )
+
+            user_content = (
+                f"Item Name: {item_title}\n"
+                f"Category: {item_category}\n"
+                f"Owner's Secret Detail: \"{secret_point}\"\n\n"
+                "Generate the target inspection zone and the neutral request prompt."
+            )
+
+            response = genai_client.models.generate_content(
+                model=ACTIVE_MODEL,
+                contents=user_content,
+                config=types.GenerateContentConfig(
+                    system_instruction=sys_instruction,
+                    response_mime_type="application/json",
+                    response_schema=ProbePromptOutput,
+                    temperature=0.2
+                )
+            )
+
+            data = json.loads(response.text)
+            if "neutral_prompt" in data and "target_area" in data:
+                return data["neutral_prompt"], data["target_area"]
+
+        except Exception as e:
+            print(f"[Verification Agent] AI Parser fallback triggered: {e}")
+
+    # 2. Resilient Rule-Based Heuristic Parser (Ensures zero-downtime offline fallback)
+    secret_lower = (secret_point or "").lower().strip()
+
     if "apple" in secret_lower and "logo" in secret_lower:
         target_area = "Apple Logo & Surrounding Back Casing"
         neutral_prompt = f"Please take and upload a clear, focused photo showing the Apple logo and the surrounding back casing of the {item_title}."
@@ -59,7 +116,6 @@ def generate_neutral_probe_prompt(secret_point: str, item_category: str, product
         target_area = "Outer Perimeter Edge & Corner"
         neutral_prompt = f"Please take and upload a clear photo showing the outer perimeter corners and frame edges of the {item_title}."
     else:
-        # Extract prominent noun phrase if possible
         words = re.findall(r'\b[a-zA-Z]{3,}\b', secret_lower)
         clean_words = [w for w in words if w not in ['small', 'tiny', 'crack', 'scratch', 'there', 'with', 'that', 'this', 'have', 'from', 'near', 'right', 'left', 'some', 'mark', 'area', 'beside', 'next']]
         if clean_words:
@@ -81,28 +137,72 @@ def evaluate_finder_verification_photo(
     photo_data_raw: Optional[str] = ""
 ) -> Tuple[float, str, str]:
     """
-    Tier-1 Local Inspection Analysis:
-    Verifies photo presence, valid pixel variance, and target area correspondence
-    without external API latency or cost.
+    Evaluates finder's uploaded verification photo against the owner's secret criteria.
+    Supports multimodal Gemini 2.5 Flash analysis when configured, with Tier-1 PIL local analysis fallback.
     """
     raw_img = (photo_data_raw or finder_photo_url or "").strip()
     if not raw_img or len(raw_img) < 50:
         return 0.0, "REJECTED", "No valid image payload was provided for verification inspection."
 
     target_desc = target_area or "requested area"
-    
-    # Analyze image variance / non-blank validation
+
+    # 1. Live Multimodal Gemini 2.5 Flash Evaluation
+    if genai_client and ("base64," in raw_img or raw_img.startswith("data:image")):
+        try:
+            import base64
+            header, encoded = raw_img.split(",", 1) if "," in raw_img else ("", raw_img)
+            mime_type = "image/jpeg"
+            if "png" in header:
+                mime_type = "image/png"
+            elif "webp" in header:
+                mime_type = "image/webp"
+
+            img_bytes = base64.b64decode(encoded)
+
+            eval_prompt = (
+                f"You are an Anti-Fraud Verification AI evaluating a property handover inspection photo.\n"
+                f"Requested Target Zone: {target_desc}\n"
+                f"Confidential Owner Flaw/Marker: \"{secret_point}\"\n"
+                f"Finder Inspection Notes: \"{finder_notes or 'None'}\"\n\n"
+                "Inspect the uploaded photograph carefully:\n"
+                "1. Does the photo clearly show the requested target zone?\n"
+                "2. Does it exhibit characteristics consistent with the registered owner proof?\n\n"
+                "Respond in JSON format with keys: \"verified\" (boolean), \"confidence\" (float 0.0-1.0), and \"reasoning\" (string explanation)."
+            )
+
+            response = genai_client.models.generate_content(
+                model=ACTIVE_MODEL,
+                contents=[
+                    types.Part.from_bytes(data=img_bytes, mime_type=mime_type),
+                    eval_prompt
+                ],
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    temperature=0.1
+                )
+            )
+
+            res_data = json.loads(response.text)
+            is_verified = bool(res_data.get("verified", True))
+            confidence = float(res_data.get("confidence", 0.96))
+            reasoning = res_data.get("reasoning", f"Photo of '{target_desc}' verified against registered property records.")
+            status = "VERIFIED" if is_verified else "REJECTED"
+            return confidence, status, reasoning
+
+        except Exception as e:
+            print(f"[Verification Agent] Gemini vision evaluation fallback: {e}")
+
+    # 2. Tier-1 Local Pixel Variance & Image Validation Fallback
     try:
         import base64
         import io
         from PIL import Image, ImageStat
-        
+
         img_bytes = None
         if "base64," in raw_img:
             b64_data = raw_img.split("base64,")[1]
             img_bytes = base64.b64decode(b64_data)
         elif raw_img.startswith("data:image/svg+xml"):
-            # SVG vector graphic check
             img_bytes = b"svg"
         elif os.path.exists(raw_img):
             with open(raw_img, "rb") as f:
@@ -112,13 +212,11 @@ def evaluate_finder_verification_photo(
             img = Image.open(io.BytesIO(img_bytes)).convert("L")
             stat = ImageStat.Stat(img)
             variance = stat.var[0] if stat.var else 0.0
-            
-            # Check for completely blank/solid image
+
             if variance < 2.0:
                 return 0.20, "REJECTED", f"Uploaded photo of '{target_desc}' lacks sufficient visual detail or contrast. Please retake under good lighting."
 
     except Exception:
-        # Graceful fallback if image decoding encountered format variations
         pass
 
     confidence = 0.98
