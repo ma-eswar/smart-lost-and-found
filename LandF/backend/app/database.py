@@ -314,62 +314,63 @@ def init_db():
 
 # SVG data URLs for realistic item visualizations
 DEMO_MACBOOK_PHOTO = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='400' viewBox='0 0 600 400'><rect width='600' height='400' fill='%231e293b'/><rect x='100' y='60' width='400' height='240' rx='16' fill='%23334155' stroke='%2364748b' stroke-width='4'/><rect x='120' y='80' width='360' height='200' rx='8' fill='%230f172a'/><circle cx='300' cy='180' r='24' fill='%2394a3b8' opacity='0.8'/><path d='M70 300 L530 300 L510 320 L90 320 Z' fill='%23475569'/><rect x='260' y='300' width='80' height='8' rx='4' fill='%231e293b'/><text x='300' y='360' font-family='sans-serif' font-size='16' font-weight='bold' fill='%23cbd5e1' text-anchor='middle'>Apple MacBook Pro 14 M2 (Space Gray)</text></svg>"
-
 DEMO_FOUND_MACBOOK_PHOTO = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='400' viewBox='0 0 600 400'><rect width='600' height='400' fill='%230f172a'/><rect x='110' y='70' width='380' height='230' rx='14' fill='%2327272a' stroke='%2352525b' stroke-width='3'/><path d='M80 300 L520 300 L500 325 L100 325 Z' fill='%233f3f46'/><circle cx='300' cy='185' r='22' fill='%2371717a' opacity='0.7'/><text x='300' y='360' font-family='sans-serif' font-size='16' font-weight='bold' fill='%23a1a1aa' text-anchor='middle'>MacBook Laptop in Dark Protective Cover</text></svg>"
 
-DEMO_BOTTLE_PHOTO = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='400' viewBox='0 0 600 400'><rect width='600' height='400' fill='%231e293b'/><rect x='250' y='70' width='100' height='40' rx='8' fill='%2394a3b8'/><rect x='230' y='110' width='140' height='210' rx='18' fill='%23cbd5e1' stroke='%23e2e8f0' stroke-width='3'/><line x1='230' y1='180' x2='370' y2='180' stroke='%2394a3b8' stroke-width='2'/><text x='300' y='360' font-family='sans-serif' font-size='16' font-weight='bold' fill='%2394a3b8' text-anchor='middle'>Silver Insulated Water Bottle</text></svg>"
+DEMO_WALLET_PHOTO = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='400' viewBox='0 0 600 400'><rect width='600' height='400' fill='%23292524'/><rect x='140' y='90' width='320' height='220' rx='12' fill='%2378350f' stroke='%2392400e' stroke-width='4'/><path d='M140 180 L460 180' stroke='%23b45309' stroke-width='3' stroke-dasharray='6,6'/><rect x='380' y='160' width='60' height='40' rx='6' fill='%23d97706'/><circle cx='410' cy='180' r='6' fill='%23fef3c7'/><text x='300' y='360' font-family='sans-serif' font-size='16' font-weight='bold' fill='%23fde68a' text-anchor='middle'>Tommy Hilfiger Brown Leather Bi-Fold Wallet</text></svg>"
+DEMO_FOUND_WALLET_PHOTO = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='400' viewBox='0 0 600 400'><rect width='600' height='400' fill='%231c1917'/><rect x='150' y='100' width='300' height='200' rx='10' fill='%23573010' stroke='%2378350f' stroke-width='3'/><rect x='370' y='170' width='50' height='36' rx='4' fill='%23b45309'/><text x='300' y='360' font-family='sans-serif' font-size='15' font-weight='bold' fill='%23e7e5e4' text-anchor='middle'>Found Tan Leather Wallet with Cards</text></svg>"
 
-DEMO_HINGE_VERIFICATION_PHOTO = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='400' viewBox='0 0 600 400'><rect width='600' height='400' fill='%2318181b'/><rect x='50' y='120' width='500' height='160' rx='6' fill='%2327272a' stroke='%233f3f46' stroke-width='2'/><line x1='350' y1='120' x2='350' y2='280' stroke='%2352525b' stroke-width='8'/><circle cx='440' cy='160' r='14' fill='%2318181b' stroke='%2371717a' stroke-width='2'/><path d='M360 162 L390 178' stroke='%23ef4444' stroke-width='2' stroke-dasharray='2,2'/><text x='300' y='70' font-family='sans-serif' font-size='15' font-weight='bold' fill='%23f43f5e' text-anchor='middle'>Close-Up Inspection: Right Hinge & Power Button Zone</text><text x='400' y='210' font-family='sans-serif' font-size='13' fill='%23fbbf24'>Hairline crack detected at hinge</text></svg>"
+DEMO_HEADPHONES_PHOTO = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='400' viewBox='0 0 600 400'><rect width='600' height='400' fill='%230f172a'/><path d='M200 220 C200 130 400 130 400 220' stroke='%2394a3b8' stroke-width='16' fill='none'/><rect x='170' y='200' width='50' height='90' rx='24' fill='%23cbd5e1'/><rect x='380' y='200' width='50' height='90' rx='24' fill='%23cbd5e1'/><text x='300' y='360' font-family='sans-serif' font-size='16' font-weight='bold' fill='%23e2e8f0' text-anchor='middle'>Sony WH-1000XM5 Wireless Headphones (Silver)</text></svg>"
+DEMO_FOUND_HEADPHONES_PHOTO = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='400' viewBox='0 0 600 400'><rect width='600' height='400' fill='%231e293b'/><path d='M210 220 C210 140 390 140 390 220' stroke='%2364748b' stroke-width='14' fill='none'/><rect x='180' y='205' width='46' height='80' rx='20' fill='%2394a3b8'/><rect x='374' y='205' width='46' height='80' rx='20' fill='%2394a3b8'/><text x='300' y='360' font-family='sans-serif' font-size='15' font-weight='bold' fill='%23cbd5e1' text-anchor='middle'>Found Silver Noise-Cancelling Headphones in Case</text></svg>"
+
+DEMO_BACKPACK_PHOTO = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='400' viewBox='0 0 600 400'><rect width='600' height='400' fill='%2309090b'/><path d='M200 130 C200 80 400 80 400 130 L430 330 L170 330 Z' fill='%2327272a' stroke='%233f3f46' stroke-width='4'/><rect x='230' y='200' width='140' height='100' rx='10' fill='%2318181b'/><rect x='285' y='140' width='30' height='20' fill='%23ef4444' rx='2'/><text x='300' y='360' font-family='sans-serif' font-size='15' font-weight='bold' fill='%23a1a1aa' text-anchor='middle'>Black SwissGear College Backpack</text></svg>"
+DEMO_BOTTLE_PHOTO = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='400' viewBox='0 0 600 400'><rect width='600' height='400' fill='%231e293b'/><rect x='250' y='70' width='100' height='40' rx='8' fill='%2394a3b8'/><rect x='230' y='110' width='140' height='210' rx='18' fill='%23cbd5e1' stroke='%23e2e8f0' stroke-width='3'/><line x1='230' y1='180' x2='370' y2='180' stroke='%2394a3b8' stroke-width='2'/><text x='300' y='360' font-family='sans-serif' font-size='16' font-weight='bold' fill='%2394a3b8' text-anchor='middle'>Silver Insulated Water Bottle</text></svg>"
 
 
 def seed_demo_dataset():
     """
-    Seeds a realistic 1-click end-to-end demo dataset:
-    1. Lost Item: DEMO-LOST-MACBOOK (Aarav Sharma, Apple MacBook Pro 14 M2, ₹2,000 Escrow,
-       Secret point: "Small hairline crack on the right hinge directly next to the power button", Lat: 12.9725, Lon: 77.5958).
-    2. Matching Found Item: DEMO-FND-LAPTOP-MATCH (Rahul Verma, Apple MacBook Laptop in Dark Cover,
-       50m away at Library Study Section, found 1.5h later, UPI: rahul@okaxis).
-    3. Decoy Found Item: DEMO-FND-BOTTLE-DECOY (Silver Insulated Water Bottle, 3.5km away).
-    4. Linked Escrow Record: ESC-DEMO-01 (₹2,000 PLEDGED).
+    Seeds a rich, realistic multi-category demo dataset without duplicates:
+    1. Lost Laptop (MacBook Pro 14 M2) + Matching Found Laptop
+    2. Lost Wallet (Tommy Hilfiger Bi-Fold) + Matching Found Wallet
+    3. Lost Headphones (Sony WH-1000XM5) + Matching Found Headphones
+    4. Unclaimed Backpack (SwissGear) & Decoy Water Bottle
     """
     init_db()
     conn = get_db_connection()
     cursor = conn.cursor()
 
     now = datetime.now()
-    lost_time = (now - timedelta(hours=3)).strftime("%Y-%m-%dT%H:%M:%S")
-    found_time = (now - timedelta(hours=1, minutes=30)).strftime("%Y-%m-%dT%H:%M:%S")
-    decoy_time = (now - timedelta(hours=4)).strftime("%Y-%m-%dT%H:%M:%S")
     now_str = now.isoformat()
+    t_minus_3h = (now - timedelta(hours=3)).strftime("%Y-%m-%dT%H:%M:%S")
+    t_minus_2h = (now - timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%S")
+    t_minus_1h = (now - timedelta(hours=1, minutes=20)).strftime("%Y-%m-%dT%H:%M:%S")
+    t_minus_4h = (now - timedelta(hours=4)).strftime("%Y-%m-%dT%H:%M:%S")
 
-    # 1. Create or update demo owner user
-    demo_user_id = "USER-DEMO-AARAV"
-    cursor.execute("""
-    INSERT INTO users (id, full_name, email, phone, password_hash, role, created_at)
-    VALUES (?, ?, ?, ?, ?, 'user', ?)
-    ON CONFLICT(id) DO UPDATE SET
-        full_name = excluded.full_name,
-        email = excluded.email,
-        phone = excluded.phone
-    """, (
-        demo_user_id,
-        "Aarav Sharma",
-        "aarav.sharma@campus.edu",
-        "+91 98765 43210",
-        "pbkdf2_sha256$demosalt$d04130be7f4bfbbfda96426d1db3ebfa556a3e14fb61eb6194b0593c66bf9b8f",
-        now_str
-    ))
+    # Clean existing demo records to ensure zero duplicates
+    cursor.execute("DELETE FROM verification_probes WHERE id LIKE '%DEMO%' OR lost_item_id LIKE '%DEMO%' OR found_item_id LIKE '%DEMO%'")
+    cursor.execute("DELETE FROM match_evaluations WHERE id LIKE '%DEMO%' OR lost_item_id LIKE '%DEMO%' OR found_item_id LIKE '%DEMO%'")
+    cursor.execute("DELETE FROM escrow_records WHERE id LIKE '%DEMO%' OR lost_item_id LIKE '%DEMO%'")
+    cursor.execute("DELETE FROM release_authorizations WHERE id LIKE '%DEMO%' OR lost_item_id LIKE '%DEMO%'")
+    cursor.execute("DELETE FROM lost_items WHERE id LIKE '%DEMO%' OR user_id LIKE 'USER-DEMO%'")
+    cursor.execute("DELETE FROM found_items WHERE id LIKE '%DEMO%' OR user_id LIKE 'USER-DEMO%'")
+    cursor.execute("DELETE FROM notifications WHERE user_id LIKE 'USER-DEMO%'")
+    cursor.execute("DELETE FROM users WHERE id LIKE 'USER-DEMO%'")
 
-    # 2. Lost Item: DEMO-LOST-MACBOOK
-    lost_id = "DEMO-LOST-MACBOOK"
-    secret_points = [
-        {
-            "point": "Small hairline crack on the right hinge directly next to the power button",
-            "photo_url": None
-        }
+    # 1. Users
+    users_data = [
+        ("USER-DEMO-AARAV", "Aarav Sharma", "aarav.sharma@campus.edu", "+91 98765 43210"),
+        ("USER-DEMO-PRIYA", "Priya Patel", "priya.patel@campus.edu", "+91 98765 11223"),
+        ("USER-DEMO-ROHAN", "Rohan Varma", "rohan.varma@campus.edu", "+91 98765 55443"),
+        ("USER-DEMO-RAHUL", "Rahul Verma", "rahul.verma@campus.edu", "+91 91234 56789"),
+        ("USER-DEMO-VIKRAM", "Vikram Rao", "vikram.rao@campus.edu", "+91 91234 88776"),
+        ("USER-DEMO-ANANYA", "Ananya Sen", "ananya.sen@campus.edu", "+91 91234 33221")
     ]
-    ref_photos = [DEMO_MACBOOK_PHOTO]
+    for uid, name, email, phone in users_data:
+        cursor.execute("""
+        INSERT INTO users (id, full_name, email, phone, password_hash, role, created_at)
+        VALUES (?, ?, ?, ?, 'pbkdf2_sha256$demosalt$d04130be7f4bfbbfda96426d1db3ebfa556a3e14fb61eb6194b0593c66bf9b8f', 'user', ?)
+        """, (uid, name, email, phone, now_str))
 
+    # 2. Lost Item 1: MacBook Pro
     cursor.execute("""
     INSERT INTO lost_items (
         id, user_id, product_name, category, description, reference_photos,
@@ -379,60 +380,21 @@ def seed_demo_dataset():
         last_seen_location, latitude, longitude, last_seen_time,
         status, access_token, created_at, updated_at
     ) VALUES (
-        ?, ?, ?, ?, ?, ?,
-        ?, ?, 'PLEDGED', ?,
-        ?, ?, ?, ?,
-        ?, ?, ?, ?,
-        ?, ?, ?, ?,
-        'REPORTED', 'TOKEN-DEMO-LOST-AARAV', ?, ?
+        'DEMO-LOST-MACBOOK', 'USER-DEMO-AARAV', 'Apple MacBook Pro 14 M2 Space Gray', 'Electronics',
+        'Space Gray 14-inch MacBook Pro M2 with matte screen and faint hairline markings on casing.',
+        ?, ?, 2000.0, 'INR', 'PLEDGED', 'Aarav Sharma', '+91 98765 43210', 1,
+        '+91 98765 00000 (Rohan - Roommate)', 'aarav.sharma@campus.edu', 'Hostel Block C, Room 412',
+        'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855', '8891',
+        'Central Library 2nd Floor, Table 14', 12.9725, 77.5958, ?, 'REPORTED',
+        'TOKEN-DEMO-LOST-AARAV', ?, ?
     )
-    ON CONFLICT(id) DO UPDATE SET
-        product_name = excluded.product_name,
-        category = excluded.category,
-        description = excluded.description,
-        reference_photos = excluded.reference_photos,
-        secret_points = excluded.secret_points,
-        reward_amount = excluded.reward_amount,
-        reward_currency = excluded.reward_currency,
-        escrow_status = 'PLEDGED',
-        owner_name = excluded.owner_name,
-        owner_phone = excluded.owner_phone,
-        backup_contact = excluded.backup_contact,
-        owner_email = excluded.owner_email,
-        last_seen_location = excluded.last_seen_location,
-        latitude = excluded.latitude,
-        longitude = excluded.longitude,
-        last_seen_time = excluded.last_seen_time,
-        status = 'REPORTED',
-        updated_at = excluded.updated_at
     """, (
-        lost_id,
-        demo_user_id,
-        "Apple MacBook Pro 14 M2 Space Gray",
-        "Electronics",
-        "Space Gray 14-inch MacBook Pro M2 with matte screen and faint hairline markings on casing.",
-        json.dumps(ref_photos),
-        json.dumps(secret_points),
-        2000.0,
-        "INR",
-        "Aarav Sharma",
-        "+91 98765 43210",
-        1,
-        "+91 98765 00000 (Rohan - Roommate)",
-        "aarav.sharma@campus.edu",
-        "Hostel Block C, Room 412, North Campus",
-        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-        "8891",
-        "Central Library 2nd Floor, Table 14",
-        12.9725,
-        77.5958,
-        lost_time,
-        now_str,
-        now_str
+        json.dumps([DEMO_MACBOOK_PHOTO]),
+        json.dumps([{"point": "Small hairline crack on the right hinge directly next to the power button", "photo_url": None}]),
+        t_minus_3h, now_str, now_str
     ))
 
-    # 3. Matching Found Item: DEMO-FND-LAPTOP-MATCH
-    fnd_match_id = "DEMO-FND-LAPTOP-MATCH"
+    # 3. Found Item 1: MacBook Pro Match
     cursor.execute("""
     INSERT INTO found_items (
         id, user_id, submission_type, desk_id, desk_intake_receipt_id,
@@ -442,50 +404,41 @@ def seed_demo_dataset():
         finder_email, finder_upi_id, finder_roll_or_id, is_verified_samaritan,
         status, access_token, created_at, updated_at
     ) VALUES (
-        ?, NULL, 'VERIFIED_DESK', 'DESK-LIB-02', 'RCPT-LIB-8801',
-        ?, ?, ?, ?, '[]',
-        ?, ?, ?, ?,
-        ?, ?, ?, 1,
-        ?, ?, '2024CS042', 1,
+        'DEMO-FND-LAPTOP-MATCH', 'USER-DEMO-RAHUL', 'VERIFIED_DESK', 'DESK-LIB-02', 'RCPT-LIB-8801',
+        'Apple MacBook Laptop in Dark Cover', 'Electronics',
+        'Dark cover space gray Apple laptop found left on library study desk near east wing window.',
+        ?, '[]', 'Library Study Section (50m from 2nd floor)', 12.9726, 77.5959, ?,
+        'Safely Deposited at Central Library Circulation Desk (DESK-LIB-02)',
+        'Rahul Verma', '+91 91234 56789', 1, 'rahul.verma@campus.edu', 'rahul@okaxis', '2024CS042', 1,
         'INTAKE_RECEIVED', 'TOKEN-DEMO-FND-RAHUL', ?, ?
     )
-    ON CONFLICT(id) DO UPDATE SET
-        object_name = excluded.object_name,
-        category = excluded.category,
-        description = excluded.description,
-        primary_photo = excluded.primary_photo,
-        found_location = excluded.found_location,
-        latitude = excluded.latitude,
-        longitude = excluded.longitude,
-        found_time = excluded.found_time,
-        pickup_availability = excluded.pickup_availability,
-        finder_name = excluded.finder_name,
-        finder_phone = excluded.finder_phone,
-        finder_email = excluded.finder_email,
-        finder_upi_id = excluded.finder_upi_id,
-        status = 'INTAKE_RECEIVED',
-        updated_at = excluded.updated_at
+    """, (DEMO_FOUND_MACBOOK_PHOTO, t_minus_1h, now_str, now_str))
+
+    # 4. Lost Item 2: Leather Wallet
+    cursor.execute("""
+    INSERT INTO lost_items (
+        id, user_id, product_name, category, description, reference_photos,
+        secret_points, reward_amount, reward_currency, escrow_status,
+        owner_name, owner_phone, owner_phone_verified, backup_contact,
+        owner_email, residential_address, govt_id_hash, govt_id_last4,
+        last_seen_location, latitude, longitude, last_seen_time,
+        status, access_token, created_at, updated_at
+    ) VALUES (
+        'DEMO-LOST-WALLET', 'USER-DEMO-PRIYA', 'Tommy Hilfiger Brown Leather Bi-Fold Wallet', 'Wallets & Cards',
+        'Classic tan brown genuine leather wallet with metal brand emblem and multiple card dividers.',
+        ?, ?, 500.0, 'INR', 'PLEDGED', 'Priya Patel', '+91 98765 11223', 1,
+        '+91 98765 99887 (Kavita - Sister)', 'priya.patel@campus.edu', 'Girls Hostel Block B, Room 204',
+        'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855', '3341',
+        'Main Campus Cafeteria, Counter 2', 12.9719, 77.5942, ?, 'REPORTED',
+        'TOKEN-DEMO-LOST-PRIYA', ?, ?
+    )
     """, (
-        fnd_match_id,
-        "Apple MacBook Laptop in Dark Cover",
-        "Electronics",
-        "Dark cover space gray Apple laptop found left on library study desk near east wing window.",
-        DEMO_FOUND_MACBOOK_PHOTO,
-        "Library Study Section (50m from 2nd floor)",
-        12.9726,
-        77.5959,
-        found_time,
-        "Safely Deposited at Central Library Circulation Desk (DESK-LIB-02)",
-        "Rahul Verma",
-        "+91 91234 56789",
-        "rahul.verma@campus.edu",
-        "rahul@okaxis",
-        now_str,
-        now_str
+        json.dumps([DEMO_WALLET_PHOTO]),
+        json.dumps([{"point": "Diagonal scissor cut on top-right corner of college gym ID inside mesh slot", "photo_url": None}]),
+        t_minus_2h, now_str, now_str
     ))
 
-    # 4. Decoy Item: DEMO-FND-BOTTLE-DECOY
-    decoy_id = "DEMO-FND-BOTTLE-DECOY"
+    # 5. Found Item 2: Leather Wallet Match
     cursor.execute("""
     INSERT INTO found_items (
         id, user_id, submission_type, desk_id, desk_intake_receipt_id,
@@ -495,83 +448,114 @@ def seed_demo_dataset():
         finder_email, finder_upi_id, finder_roll_or_id, is_verified_samaritan,
         status, access_token, created_at, updated_at
     ) VALUES (
-        ?, NULL, 'DIRECT_CUSTODY', NULL, NULL,
-        ?, ?, ?, ?, '[]',
-        ?, ?, ?, ?,
-        ?, ?, ?, 1,
-        ?, ?, '2023ME119', 0,
+        'DEMO-FND-WALLET-MATCH', 'USER-DEMO-VIKRAM', 'VERIFIED_DESK', 'DESK-SEC-01', 'RCPT-SEC-4412',
+        'Tan Brown Leather Bi-Fold Wallet', 'Wallets & Cards',
+        'Found on table at cafeteria dining area containing several student cards.',
+        ?, '[]', 'Campus Dining Hall table 8', 12.9720, 77.5943, ?,
+        'Deposited at Main Gate Security Desk (DESK-SEC-01)',
+        'Vikram Rao', '+91 91234 88776', 1, 'vikram.rao@campus.edu', 'vikram@okhdfcbank', '2023EE088', 1,
+        'INTAKE_RECEIVED', 'TOKEN-DEMO-FND-VIKRAM', ?, ?
+    )
+    """, (DEMO_FOUND_WALLET_PHOTO, t_minus_1h, now_str, now_str))
+
+    # 6. Lost Item 3: Sony Headphones
+    cursor.execute("""
+    INSERT INTO lost_items (
+        id, user_id, product_name, category, description, reference_photos,
+        secret_points, reward_amount, reward_currency, escrow_status,
+        owner_name, owner_phone, owner_phone_verified, backup_contact,
+        owner_email, residential_address, govt_id_hash, govt_id_last4,
+        last_seen_location, latitude, longitude, last_seen_time,
+        status, access_token, created_at, updated_at
+    ) VALUES (
+        'DEMO-LOST-HEADPHONES', 'USER-DEMO-ROHAN', 'Sony WH-1000XM5 Wireless Headphones (Silver)', 'Electronics',
+        'Silver platinum over-ear headphones with active noise cancellation in grey hard case.',
+        ?, ?, 1500.0, 'INR', 'PLEDGED', 'Rohan Varma', '+91 98765 55443', 1,
+        '+91 98765 12345 (Aarav - Friend)', 'rohan.varma@campus.edu', 'Hostel Block A, Room 102',
+        'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855', '9021',
+        'Student Activity Center, Badminton Court', 12.9734, 77.5971, ?, 'REPORTED',
+        'TOKEN-DEMO-LOST-ROHAN', ?, ?
+    )
+    """, (
+        json.dumps([DEMO_HEADPHONES_PHOTO]),
+        json.dumps([{"point": "Micro scratch on left volume swivel slider and initials R.V. marker inside headband", "photo_url": None}]),
+        t_minus_4h, now_str, now_str
+    ))
+
+    # 7. Found Item 3: Sony Headphones Match
+    cursor.execute("""
+    INSERT INTO found_items (
+        id, user_id, submission_type, desk_id, desk_intake_receipt_id,
+        object_name, category, description, primary_photo, additional_photos,
+        found_location, latitude, longitude, found_time,
+        pickup_availability, finder_name, finder_phone, finder_phone_verified,
+        finder_email, finder_upi_id, finder_roll_or_id, is_verified_samaritan,
+        status, access_token, created_at, updated_at
+    ) VALUES (
+        'DEMO-FND-HEADPHONES-MATCH', 'USER-DEMO-ANANYA', 'VERIFIED_DESK', 'DESK-HUB-03', 'RCPT-HUB-1092',
+        'Sony Platinum Noise-Cancelling Headphones', 'Electronics',
+        'Over-ear premium silver wireless headphones inside grey protective zipper case.',
+        ?, '[]', 'SAC Sports Building lounge seating', 12.9735, 77.5972, ?,
+        'Deposited at Student Tech Hub Helpdesk (DESK-HUB-03)',
+        'Ananya Sen', '+91 91234 33221', 1, 'ananya.sen@campus.edu', 'ananya@paytm', '2024CS115', 1,
+        'INTAKE_RECEIVED', 'TOKEN-DEMO-FND-ANANYA', ?, ?
+    )
+    """, (DEMO_FOUND_HEADPHONES_PHOTO, t_minus_2h, now_str, now_str))
+
+    # 8. Unclaimed Found Items: Backpack & Bottle
+    cursor.execute("""
+    INSERT INTO found_items (
+        id, user_id, submission_type, desk_id, desk_intake_receipt_id,
+        object_name, category, description, primary_photo, additional_photos,
+        found_location, latitude, longitude, found_time,
+        pickup_availability, finder_name, finder_phone, finder_phone_verified,
+        finder_email, finder_upi_id, finder_roll_or_id, is_verified_samaritan,
+        status, access_token, created_at, updated_at
+    ) VALUES (
+        'DEMO-FND-BACKPACK', NULL, 'VERIFIED_DESK', 'DESK-LIB-02', 'RCPT-LIB-8890',
+        'Black SwissGear College Backpack', 'Bags & Backpacks',
+        'Durable black laptop backpack left on 3rd row desk of Lecture Hall 3.',
+        ?, '[]', 'Lecture Hall 3, Engineering Complex', 12.9740, 77.5960, ?,
+        'Deposited at Central Library Circulation Desk (DESK-LIB-02)',
+        'Sneha Reddy', '+91 97654 11220', 1, 'sneha.r@campus.edu', 'sneha@oksbi', '2024CS089', 1,
+        'INTAKE_RECEIVED', 'TOKEN-DEMO-FND-SNEHA', ?, ?
+    )
+    """, (DEMO_BACKPACK_PHOTO, t_minus_3h, now_str, now_str))
+
+    cursor.execute("""
+    INSERT INTO found_items (
+        id, user_id, submission_type, desk_id, desk_intake_receipt_id,
+        object_name, category, description, primary_photo, additional_photos,
+        found_location, latitude, longitude, found_time,
+        pickup_availability, finder_name, finder_phone, finder_phone_verified,
+        finder_email, finder_upi_id, finder_roll_or_id, is_verified_samaritan,
+        status, access_token, created_at, updated_at
+    ) VALUES (
+        'DEMO-FND-BOTTLE-DECOY', NULL, 'DIRECT_CUSTODY', NULL, NULL,
+        'Silver Insulated Water Bottle', 'Other',
+        'Stainless steel vacuum flask with black screw top lid found at sports pavilion.',
+        ?, '[]', 'Sports Complex Pavilion', 12.9900, 77.6200, ?,
+        'Available with finder on campus',
+        'Amit Kumar', '+91 97654 32109', 1, 'amit.k@campus.edu', 'amit@oksbi', '2023ME119', 0,
         'IN_CUSTODY', 'TOKEN-DEMO-FND-AMIT', ?, ?
     )
-    ON CONFLICT(id) DO UPDATE SET
-        object_name = excluded.object_name,
-        category = excluded.category,
-        description = excluded.description,
-        primary_photo = excluded.primary_photo,
-        found_location = excluded.found_location,
-        latitude = excluded.latitude,
-        longitude = excluded.longitude,
-        found_time = excluded.found_time,
-        pickup_availability = excluded.pickup_availability,
-        finder_name = excluded.finder_name,
-        finder_phone = excluded.finder_phone,
-        finder_email = excluded.finder_email,
-        finder_upi_id = excluded.finder_upi_id,
-        status = 'IN_CUSTODY',
-        updated_at = excluded.updated_at
-    """, (
-        decoy_id,
-        "Silver Insulated Water Bottle",
-        "Personal Accessories",
-        "Stainless steel vacuum flask with black screw top lid.",
-        DEMO_BOTTLE_PHOTO,
-        "Sports Complex Pavilion (3.5km away)",
-        12.9900,
-        77.6200,
-        decoy_time,
-        "Available for handover at Student Tech Hub on weekdays",
-        "Amit Kumar",
-        "+91 97654 32109",
-        "amit.k@campus.edu",
-        "amit@oksbi",
-        now_str,
-        now_str
-    ))
+    """, (DEMO_BOTTLE_PHOTO, t_minus_4h, now_str, now_str))
 
-    # 5. Escrow Record: ESC-DEMO-01
-    escrow_id = "ESC-DEMO-01"
+    # 9. Escrow Records for Pledged Rewards
     cursor.execute("""
-    INSERT INTO escrow_records (
-        id, lost_item_id, found_item_id, amount, currency, status,
-        payer_name, payer_phone, recipient_upi, transaction_ref,
-        created_at, updated_at
-    ) VALUES (?, ?, ?, 2000.0, 'INR', 'PLEDGED', ?, ?, NULL, 'TXN-UPI-DEMO-2000', ?, ?)
-    ON CONFLICT(id) DO UPDATE SET
-        amount = 2000.0,
-        status = 'PLEDGED',
-        updated_at = excluded.updated_at
-    """, (
-        escrow_id,
-        lost_id,
-        fnd_match_id,
-        "Aarav Sharma",
-        "+91 98765 43210",
-        now_str,
-        now_str
-    ))
-
-    # Remove any stale test evaluations for clean demo state
-    cursor.execute("DELETE FROM match_evaluations WHERE lost_item_id = ?", (lost_id,))
-    cursor.execute("DELETE FROM verification_probes WHERE lost_item_id = ?", (lost_id,))
-    cursor.execute("DELETE FROM release_authorizations WHERE lost_item_id = ?", (lost_id,))
+    INSERT INTO escrow_records (id, lost_item_id, found_item_id, amount, currency, status, payer_name, payer_phone, recipient_upi, transaction_ref, created_at, updated_at)
+    VALUES
+        ('ESC-DEMO-01', 'DEMO-LOST-MACBOOK', 'DEMO-FND-LAPTOP-MATCH', 2000.0, 'INR', 'PLEDGED', 'Aarav Sharma', '+91 98765 43210', NULL, 'TXN-UPI-DEMO-2000', ?, ?),
+        ('ESC-DEMO-02', 'DEMO-LOST-WALLET', 'DEMO-FND-WALLET-MATCH', 500.0, 'INR', 'PLEDGED', 'Priya Patel', '+91 98765 11223', NULL, 'TXN-UPI-DEMO-500', ?, ?),
+        ('ESC-DEMO-03', 'DEMO-LOST-HEADPHONES', 'DEMO-FND-HEADPHONES-MATCH', 1500.0, 'INR', 'PLEDGED', 'Rohan Varma', '+91 98765 55443', NULL, 'TXN-UPI-DEMO-1500', ?, ?)
+    """, (now_str, now_str, now_str, now_str, now_str, now_str))
 
     conn.commit()
     conn.close()
 
     return {
         "success": True,
-        "message": "Realistic demo dataset seeded successfully",
-        "lost_item_id": lost_id,
-        "matching_found_id": fnd_match_id,
-        "decoy_found_id": decoy_id,
-        "escrow_id": escrow_id
+        "message": "Rich multi-category demo dataset seeded successfully without duplicates",
+        "items_seeded": ["MacBook Pro 14", "Tommy Hilfiger Wallet", "Sony WH-1000XM5 Headphones", "SwissGear Backpack", "Water Bottle"]
     }
+

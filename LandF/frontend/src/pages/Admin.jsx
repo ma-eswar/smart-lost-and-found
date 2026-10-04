@@ -175,6 +175,19 @@ export default function Admin() {
     }
   };
 
+  const handleSeedDemoData = async () => {
+    try {
+      setLoading(true);
+      const res = await api.seedDemo(pin);
+      toast.success(res.message || 'Rich demo dataset loaded successfully.');
+      fetchAdminData();
+    } catch (err) {
+      toast.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (!isAuthenticated) {
     return (
       <div className="main-content" style={{ maxWidth: '440px' }}>
@@ -226,9 +239,12 @@ export default function Admin() {
             Verified Partner Desk Operations, 5-Stage Matching Engine &amp; Escrow Releases
           </span>
         </div>
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
           <button type="button" className="btn btn-outline btn-sm" onClick={() => fetchAdminData()} disabled={loading}>
             <i className="bi bi-arrow-clockwise"></i> Refresh
+          </button>
+          <button type="button" className="btn btn-outline btn-sm" style={{ color: '#0284c7', borderColor: '#bae6fd' }} onClick={handleSeedDemoData} disabled={loading} title="Populate rich multi-category demo dataset (MacBook, Wallet, Headphones, Backpack)">
+            <i className="bi bi-database-add"></i> Seed Rich Demo Data
           </button>
           <button type="button" className="btn btn-outline btn-sm" style={{ color: '#d97706', borderColor: '#fde68a' }} onClick={handleClearDemoData} disabled={loading} title="Remove demo mock records and demo users">
             <i className="bi bi-trash3"></i> Clear Demo Data

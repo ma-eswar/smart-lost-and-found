@@ -42,7 +42,7 @@ export default function ReportLost() {
   });
 
   const handlePhotoUpload = (e) => {
-    const files = Array.from(e.target.files);
+    const files = Array.from(e.target.files || []);
     if (!files.length) return;
     files.forEach(file => {
       const reader = new FileReader();
@@ -50,7 +50,7 @@ export default function ReportLost() {
         if (reader.result) {
           setFormData(prev => ({
             ...prev,
-            reference_photos: [...prev.reference_photos, reader.result].slice(0, 4)
+            reference_photos: [...(prev.reference_photos || []), reader.result].slice(0, 4)
           }));
         }
       };
@@ -61,7 +61,7 @@ export default function ReportLost() {
   const removePhoto = (idx) => {
     setFormData(prev => ({
       ...prev,
-      reference_photos: prev.reference_photos.filter((_, i) => i !== idx)
+      reference_photos: (prev.reference_photos || []).filter((_, i) => i !== idx)
     }));
   };
 
@@ -123,11 +123,12 @@ export default function ReportLost() {
     }));
   };
 
-  const autofillSample = () => {
-    setFormData({
+  const samplePresets = {
+    macbook: {
       product_name: 'Apple MacBook Pro 14 M2 Space Gray',
       category: 'Electronics',
       description: 'Space Gray 14-inch MacBook Pro M2 with matte display and dark case.',
+      reference_photos: [],
       reward_amount: 2000,
       confirmation_points: [
         'Small hairline crack on the right hinge directly next to the power button',
@@ -143,8 +144,58 @@ export default function ReportLost() {
       owner_email: 'aarav.sharma@campus.edu',
       institutional_id: '2024CS042',
       residential_address: 'Campus Hostel Block C'
+    },
+    wallet: {
+      product_name: 'Tommy Hilfiger Brown Leather Bi-Fold Wallet',
+      category: 'Wallets & Cards',
+      description: 'Classic tan brown bi-fold genuine leather wallet with metal TH flag crest.',
+      reference_photos: [],
+      reward_amount: 500,
+      confirmation_points: [
+        'Diagonal scissor cut on top-right corner of college gym ID inside mesh slot',
+        'Faded 20-rupee coin dated 2011 inside coin zipper pouch'
+      ],
+      location: 'Main Campus Cafeteria, Counter 2',
+      latitude: 12.9719,
+      longitude: 77.5942,
+      last_seen_time: new Date().toISOString().slice(0, 16),
+      owner_name: 'Priya Patel',
+      owner_phone: '+91 98765 11223',
+      backup_contact: '+91 98765 99887 (Kavita - Sister)',
+      owner_email: 'priya.patel@campus.edu',
+      institutional_id: '2024EC108',
+      residential_address: 'Girls Hostel Block B, Room 204'
+    },
+    headphones: {
+      product_name: 'Sony WH-1000XM5 Wireless Headphones (Silver)',
+      category: 'Electronics',
+      description: 'Platinum silver over-ear noise cancelling headphones in matching zip case.',
+      reference_photos: [],
+      reward_amount: 1500,
+      confirmation_points: [
+        'Micro scratch on left volume swivel slider',
+        'Initials "R.V." engraved with marker inside inner headband cushion'
+      ],
+      location: 'Student Activity Center, Badminton Court Bench',
+      latitude: 12.9734,
+      longitude: 77.5971,
+      last_seen_time: new Date().toISOString().slice(0, 16),
+      owner_name: 'Rohan Varma',
+      owner_phone: '+91 98765 55443',
+      backup_contact: '+91 98765 12345 (Aarav - Friend)',
+      owner_email: 'rohan.varma@campus.edu',
+      institutional_id: '2023ME055',
+      residential_address: 'Hostel Block A, Room 102'
+    }
+  };
+
+  const autofillSample = (type = 'macbook') => {
+    const selected = samplePresets[type] || samplePresets.macbook;
+    setFormData({
+      ...selected,
+      reference_photos: []
     });
-    toast.success('Sample report data loaded. Proceed through steps to review.');
+    toast.success(`Loaded sample: ${selected.product_name}`);
   };
 
   const autoDetectLocation = () => {
@@ -300,9 +351,18 @@ export default function ReportLost() {
           <span className="badge badge-lost"><i className="bi bi-file-earmark-text"></i> Lost Property</span>
           <h1 style={{ fontSize: '1.8rem', marginTop: '0.25rem' }}>Report a Missing Item</h1>
         </div>
-        <button type="button" className="btn btn-outline btn-sm" onClick={autofillSample}>
-          <i className="bi bi-magic"></i> Autofill Sample: MacBook Pro 14
-        </button>
+        <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', alignSelf: 'center' }}>Quick Samples:</span>
+          <button type="button" className="btn btn-outline btn-sm" onClick={() => autofillSample('macbook')}>
+            💻 MacBook Pro
+          </button>
+          <button type="button" className="btn btn-outline btn-sm" onClick={() => autofillSample('wallet')}>
+            👛 Leather Wallet
+          </button>
+          <button type="button" className="btn btn-outline btn-sm" onClick={() => autofillSample('headphones')}>
+            🎧 Sony Headphones
+          </button>
+        </div>
       </div>
 
       {/* Stepper Indicator */}
