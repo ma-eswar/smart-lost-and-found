@@ -1,0 +1,88 @@
+:root {
+  --bg-main: #ffffff;
+  --bg-subtle: #f8fafc;
+  --bg-card: #ffffff;
+  --border-light: #e2e8f0;
+  --border-medium: #cbd5e1;
+  --text-main: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --btn-primary-bg: #18181b;
+  --btn-primary-text: #ffffff;
+  --btn-primary-hover: #27272a;
+  --color-emerald: #059669;
+  --color-emerald-bg: #ecfdf5;
+  --color-amber: #d97706;
+  --color-amber-bg: #fffbeb;
+  --color-rose: #dc2626;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-full: 9999px;
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background-color: var(--bg-subtle);
+  color: var(--text-main);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.bi { display: inline-block; vertical-align: -0.125em; margin-right: 0.35rem; }
+.app-header { background-color: var(--bg-main); border-bottom: 1px solid var(--border-light); position: sticky; top: 0; z-index: 100; box-shadow: var(--shadow-sm); }
+.header-container { max-width: 1200px; margin: 0 auto; padding: 0.85rem 1.5rem; display: flex; align-items: center; justify-content: space-between; }
+.brand { display: flex; align-items: center; gap: 0.6rem; text-decoration: none; color: inherit; font-weight: 700; font-size: 1.15rem; }
+.brand-badge { background-color: #18181b; color: #fff; font-size: 0.72rem; font-weight: 700; padding: 0.25rem 0.5rem; border-radius: var(--radius-sm); }
+.main-nav { display: flex; align-items: center; gap: 0.4rem; }
+.nav-link { text-decoration: none; padding: 0.5rem 0.9rem; font-size: 0.9rem; font-weight: 500; color: var(--text-secondary); border-radius: var(--radius-sm); transition: all 0.15s ease; border: none; background: transparent; cursor: pointer; font-family: inherit; display: inline-flex; align-items: center; }
+.nav-link:hover { background-color: var(--bg-subtle); color: var(--text-main); }
+.nav-link.active { background-color: #18181b; color: #ffffff; font-weight: 600; }
+.main-content { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem 4rem 1.5rem; }
+
+/* Wizard Stepper */
+.wizard-progress { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2rem; position: relative; }
+.wizard-progress-bar { position: absolute; top: 18px; left: 10%; right: 10%; height: 3px; background-color: var(--border-light); z-index: 1; }
+.wizard-progress-fill { height: 100%; width: 0%; background-color: #18181b; transition: width 0.3s ease; }
+.wizard-step-node { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; gap: 0.3rem; }
+.wizard-node-circle { width: 36px; height: 36px; border-radius: 50%; background-color: #ffffff; border: 2px solid var(--border-medium); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem; color: var(--text-muted); transition: all 0.2s ease; }
+.wizard-step-node.active .wizard-node-circle { border-color: #18181b; background-color: #18181b; color: #ffffff; }
+.wizard-step-node.completed .wizard-node-circle { border-color: var(--color-emerald); background-color: var(--color-emerald); color: #ffffff; }
+.wizard-node-label { font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); }
+
+/* Cards & Forms */
+.form-card { background-color: var(--bg-main); border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 2rem; box-shadow: var(--shadow-sm); display: flex; flex-direction: column; gap: 1.25rem; }
+.form-row { display: flex; gap: 1rem; }
+@media (max-width: 768px) { .form-row { flex-direction: column; } }
+.form-group { display: flex; flex-direction: column; gap: 0.35rem; }
+.flex-1 { flex: 1; }
+.flex-2 { flex: 2; }
+label { font-size: 0.86rem; font-weight: 600; }
+.form-control { width: 100%; padding: 0.65rem 0.85rem; font-size: 0.92rem; font-family: inherit; border: 1px solid var(--border-medium); border-radius: var(--radius-sm); outline: none; background: #ffffff; }
+.form-control:focus { border-color: #18181b; box-shadow: 0 0 0 1px #18181b; }
+.field-hint { font-size: 0.78rem; color: var(--text-muted); }
+.wizard-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 1.5rem; }
+
+/* Buttons & Badges */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; font-size: 0.92rem; font-weight: 600; padding: 0.65rem 1.25rem; border-radius: var(--radius-sm); border: 1px solid transparent; cursor: pointer; text-decoration: none; font-family: inherit; transition: all 0.15s ease; }
+.btn-primary { background-color: #18181b; color: #ffffff; }
+.btn-primary:hover { background-color: #27272a; }
+.btn-outline { background-color: #ffffff; color: var(--text-main); border-color: var(--border-medium); }
+.btn-outline:hover { background-color: var(--bg-subtle); }
+.btn-success { background-color: var(--color-emerald); color: #fff; }
+.btn-sm { padding: 0.35rem 0.7rem; font-size: 0.82rem; }
+.btn-lg { padding: 0.85rem 1.6rem; font-size: 1rem; }
+.badge { display: inline-block; font-size: 0.75rem; font-weight: 600; padding: 0.25rem 0.6rem; border-radius: var(--radius-full); }
+.badge-verified { background-color: var(--color-emerald-bg); color: var(--color-emerald); border: 1px solid #a7f3d0; }
+.badge-lost { background-color: #fef2f2; color: var(--color-rose); border: 1px solid #fecaca; }
+.badge-found { background-color: #ecfdf5; color: var(--color-emerald); border: 1px solid #bbf7d0; }
+.badge-neutral { background-color: #f1f5f9; color: #475569; border: 1px solid var(--border-medium); }
+.hidden { display: none !important; }
+
+/* Review Summary */
+.review-box { background: var(--bg-subtle); border: 1px solid var(--border-light); border-radius: var(--radius-sm); padding: 1.25rem; display: flex; flex-direction: column; gap: 0.75rem; }
+.review-row { display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-light); padding-bottom: 0.5rem; font-size: 0.88rem; }
+.review-row:last-child { border-bottom: none; }

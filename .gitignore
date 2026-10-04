@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+env/
+.pytest_cache/
+.coverage
+htmlcov/
+*.db
+backend/data/*.db
+
+# Node / Vite
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+*.log
+
+# Uploads & Temp
+uploads/*
+!uploads/.gitkeep
+temp_data/
+
+# IDE / System
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
