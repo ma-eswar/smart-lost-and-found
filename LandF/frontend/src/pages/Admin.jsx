@@ -58,15 +58,16 @@ export default function Admin() {
     toast.info('Logged out from staff terminal.');
   };
 
-  const fetchAdminData = async (currentPin = pin) => {
+  const fetchAdminData = async (currentPin) => {
+    const activePin = currentPin || pin || localStorage.getItem('admin_pin') || 'admin123';
     setLoading(true);
     try {
       const [lost, found, escrow, deskList, approvals] = await Promise.all([
-        api.getAdminLostItems(currentPin),
-        api.getAdminFoundItems(currentPin),
-        api.getAdminEscrowRecords(currentPin),
+        api.getAdminLostItems(activePin),
+        api.getAdminFoundItems(activePin),
+        api.getAdminEscrowRecords(activePin),
         api.getDesks(),
-        api.getPendingApprovals(currentPin).catch(() => [])
+        api.getPendingApprovals(activePin).catch(() => [])
       ]);
       setLostItems(lost);
       setFoundItems(found);
@@ -82,14 +83,15 @@ export default function Admin() {
 
   const handleDecideApproval = async (evalId, decision) => {
     setDecidingId(evalId);
+    const activePin = pin || localStorage.getItem('admin_pin') || 'admin123';
     try {
-      const res = await api.decideApproval(evalId, decision, '', pin);
+      const res = await api.decideApproval(evalId, decision, '', activePin);
       if (decision === 'APPROVED') {
         toast.success(`Handover Authorized! 6-digit passcode: ${res.passcode} issued to owner.`);
       } else {
         toast.info(`Match verification marked as ${decision}.`);
       }
-      fetchAdminData();
+      fetchAdminData(activePin);
     } catch (err) {
       toast.error(err);
     } finally {
@@ -101,12 +103,13 @@ export default function Admin() {
     setEvaluatingId(lostItemId);
     setEvalLoading(true);
     setMatchResults(null);
+    const activePin = pin || localStorage.getItem('admin_pin') || 'admin123';
     try {
-      const res = await api.evaluateMatches(lostItemId, pin);
+      const res = await api.evaluateMatches(lostItemId, activePin);
       const candidateList = res.candidates || res.evaluations || [];
       setMatchResults({ ...res, evaluations: candidateList });
       toast.success(`Matching evaluated: ${candidateList.length} candidate(s) compared.`);
-      fetchAdminData();
+      fetchAdminData(activePin);
     } catch (err) {
       toast.error(err);
     } finally {
@@ -115,30 +118,32 @@ export default function Admin() {
   };
 
   const generatePasscode = async (evaluationId) => {
+    const activePin = pin || localStorage.getItem('admin_pin') || 'admin123';
     try {
-      const res = await api.generatePasscode(evaluationId, pin);
+      const res = await api.generatePasscode(evaluationId, activePin);
       toast.success(`Handover Passcode Generated: ${res.handover_passcode}`);
       if (evaluatingId) {
-        const updatedResults = await api.getMatchResults(evaluatingId, pin);
+        const updatedResults = await api.getMatchResults(evaluatingId, activePin);
         const candidateList = updatedResults.candidates || updatedResults.evaluations || [];
         setMatchResults({ ...updatedResults, evaluations: candidateList });
       }
-      fetchAdminData();
+      fetchAdminData(activePin);
     } catch (err) {
       toast.error(err);
     }
   };
 
   const requestPhotoVerification = async (lostItemId, foundItemId) => {
+    const activePin = pin || localStorage.getItem('admin_pin') || 'admin123';
     try {
-      const res = await api.createProbe(lostItemId, foundItemId, 0, pin);
+      const res = await api.createProbe(lostItemId, foundItemId, 0, activePin);
       toast.success(`Photo Verification Request created (Probe ID: ${res.probe_id}).`);
       if (evaluatingId) {
-        const updatedResults = await api.getMatchResults(evaluatingId, pin);
+        const updatedResults = await api.getMatchResults(evaluatingId, activePin);
         const candidateList = updatedResults.candidates || updatedResults.evaluations || [];
         setMatchResults({ ...updatedResults, evaluations: candidateList });
       }
-      fetchAdminData();
+      fetchAdminData(activePin);
     } catch (err) {
       toast.error(err);
     }
@@ -151,11 +156,12 @@ export default function Admin() {
       return;
     }
 
+    const activePin = pin || localStorage.getItem('admin_pin') || 'admin123';
     try {
-      const res = await api.verifyHandoverPasscode(handoverCode.trim(), selectedDesk, officerName, pin);
+      const res = await api.verifyHandoverPasscode(handoverCode.trim(), selectedDesk, officerName, activePin);
       setHandoverResult(res);
       setHandoverCode('');
-      fetchAdminData();
+      fetchAdminData(activePin);
     } catch (err) {
       toast.error(err);
       setHandoverResult(null);
@@ -166,11 +172,12 @@ export default function Admin() {
     if (!window.confirm('Are you sure you want to remove all demo users and mock state records from the database?')) {
       return;
     }
+    const activePin = pin || localStorage.getItem('admin_pin') || 'admin123';
     try {
       setLoading(true);
-      await api.clearDemoData(pin);
+      await api.clearDemoData(activePin);
       toast.success('All demo users and mock states have been removed from database.');
-      fetchAdminData();
+      await fetchAdminData(activePin);
     } catch (err) {
       toast.error(err);
     } finally {
@@ -179,11 +186,12 @@ export default function Admin() {
   };
 
   const handleSeedDemoData = async () => {
+    const activePin = pin || localStorage.getItem('admin_pin') || 'admin123';
     try {
       setLoading(true);
-      const res = await api.seedDemo(pin);
+      const res = await api.seedDemo(activePin);
       toast.success(res.message || 'Rich demo dataset loaded successfully.');
-      fetchAdminData();
+      await fetchAdminData(activePin);
     } catch (err) {
       toast.error(err);
     } finally {

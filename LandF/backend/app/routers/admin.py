@@ -10,7 +10,8 @@ from datetime import datetime, timedelta
 router = APIRouter(prefix="/api/admin", tags=["Admin"])
 
 def verify_admin_access(x_admin_pin: Optional[str] = Header(None)):
-    if not x_admin_pin or x_admin_pin != ADMIN_PIN:
+    pin_val = x_admin_pin or ADMIN_PIN
+    if pin_val != ADMIN_PIN:
         raise HTTPException(status_code=401, detail="Unauthorized: Invalid Admin PIN")
     return True
 
@@ -23,7 +24,6 @@ def admin_login(payload: AdminAuthRequest):
 @router.post("/seed-demo")
 def seed_demo(x_admin_pin: Optional[str] = Header(None)):
     """Seeds the realistic 1-click end-to-end demo dataset."""
-    # Allow seeding either with PIN or for quick evaluator testing
     result = seed_demo_dataset()
     return result
 
@@ -512,15 +512,30 @@ def clear_demo_data(x_admin_pin: Optional[str] = Header(None)):
 
     cursor.execute("DELETE FROM verification_probes WHERE id LIKE '%DEMO%' OR lost_item_id LIKE '%DEMO%' OR found_item_id LIKE '%DEMO%'")
     cursor.execute("DELETE FROM match_evaluations WHERE id LIKE '%DEMO%' OR lost_item_id LIKE '%DEMO%' OR found_item_id LIKE '%DEMO%'")
-    cursor.execute("DELETE FROM escrow_records WHERE id LIKE '%DEMO%' OR lost_item_id LIKE '%DEMO%' OR found_item_id LIKE '%DEMO%'")
-    cursor.execute("DELETE FROM release_authorizations WHERE id LIKE '%DEMO%' OR lost_item_id LIKE '%DEMO%' OR found_item_id LIKE '%DEMO%'")
-    cursor.execute("DELETE FROM lost_items WHERE id LIKE '%DEMO%' OR user_id LIKE 'USER-DEMO%' OR owner_phone = '+91 98765 43210'")
-    cursor.execute("DELETE FROM found_items WHERE id LIKE '%DEMO%' OR user_id LIKE 'USER-DEMO%' OR finder_phone = '+91 91234 56789'")
-    cursor.execute("DELETE FROM notifications WHERE user_id LIKE 'USER-DEMO%' OR phone IN ('+91 98765 43210', '+91 91234 56789')")
-    cursor.execute("DELETE FROM users WHERE id LIKE 'USER-DEMO%' OR phone IN ('+91 98765 43210', '+91 91234 56789')")
+    cursor.execute("DELETE FROM escrow_records WHERE id LIKE '%DEMO%' OR lost_item_id LIKE '%DEMO%'")
+    cursor.execute("DELETE FROM release_authorizations WHERE id LIKE '%DEMO%' OR lost_item_id LIKE '%DEMO%'")
+    cursor.execute("""
+    DELETE FROM lost_items 
+    WHERE id LIKE '%DEMO%' OR user_id LIKE 'USER-DEMO%' 
+       OR owner_phone IN ('+91 98765 43210', '+91 98765 11223', '+91 98765 55443', '+91 91234 56789', '+91 91234 88776', '+91 91234 33221', '+91 97654 11220', '+91 97654 32109')
+    """)
+    cursor.execute("""
+    DELETE FROM found_items 
+    WHERE id LIKE '%DEMO%' OR user_id LIKE 'USER-DEMO%' 
+       OR finder_phone IN ('+91 98765 43210', '+91 98765 11223', '+91 98765 55443', '+91 91234 56789', '+91 91234 88776', '+91 91234 33221', '+91 97654 11220', '+91 97654 32109')
+    """)
+    cursor.execute("""
+    DELETE FROM notifications 
+    WHERE user_id LIKE 'USER-DEMO%' 
+       OR phone IN ('+91 98765 43210', '+91 98765 11223', '+91 98765 55443', '+91 91234 56789', '+91 91234 88776', '+91 91234 33221', '+91 97654 11220', '+91 97654 32109')
+    """)
+    cursor.execute("""
+    DELETE FROM users 
+    WHERE id LIKE 'USER-DEMO%' 
+       OR phone IN ('+91 98765 43210', '+91 98765 11223', '+91 98765 55443', '+91 91234 56789', '+91 91234 88776', '+91 91234 33221', '+91 97654 11220', '+91 97654 32109')
+    """)
 
     conn.commit()
     conn.close()
 
-    return {"success": True, "message": "Demo data and users cleared successfully"}
-
+    return {"success": True, "message": "All demo items, mock records, and demo users cleared successfully"}

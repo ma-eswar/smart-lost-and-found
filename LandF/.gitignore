@@ -10,7 +10,12 @@ env/
 .coverage
 htmlcov/
 *.db
-backend/data/*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+backend/data/*
+!backend/data/.gitkeep
 
 # Node / Vite
 node_modules/
