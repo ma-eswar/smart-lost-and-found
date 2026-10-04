@@ -327,9 +327,14 @@ export default function TrackStatus() {
                   <h4 style={{ marginTop: '0.75rem' }}>No Found Items Registered</h4>
                   <p className="text-muted small">You have not registered any found property with this account.</p>
                 </div>
-              ) : (
-                data.found_items.map((item) => {
+              ) : (() => {
+                let pendingChallengeRendered = false;
+                return data.found_items.map((item) => {
                   const pendingProbe = item.pending_probes && item.pending_probes.find(p => p.probe_status === 'PENDING_RESPONSE');
+                  const showPendingChallenge = !pendingChallengeRendered && pendingProbe;
+                  if (showPendingChallenge) {
+                    pendingChallengeRendered = true;
+                  }
                   const verifiedProbes = item.pending_probes ? item.pending_probes.filter(p => p.probe_status === 'VERIFIED') : [];
                   
                   return (
@@ -356,8 +361,8 @@ export default function TrackStatus() {
                         )}
                       </div>
 
-                      {/* ACTIVE PENDING AI PHOTO CHALLENGE */}
-                      {pendingProbe && (
+                      {/* ACTIVE PENDING AI PHOTO CHALLENGE (Single instance) */}
+                      {showPendingChallenge && (
                         <div className="photo-probe-challenge-box" style={{ background: '#fffbeb', border: '1.5px solid #fcd34d', borderRadius: 'var(--radius-sm, 8px)', padding: '1.25rem', marginTop: '1rem' }}>
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#92400e', fontWeight: 800, fontSize: '1rem' }}>
@@ -419,8 +424,8 @@ export default function TrackStatus() {
                       )}
                     </div>
                   );
-                })
-              )}
+                });
+              })()}
             </div>
           )}
         </div>
