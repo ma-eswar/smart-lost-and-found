@@ -111,92 +111,96 @@ export default function Header() {
           <NavLink to="/found" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
             <i className="bi bi-box-seam"></i> Report Found
           </NavLink>
-          <NavLink to="/status" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-            <i className="bi bi-speedometer2"></i> My Dashboard
-          </NavLink>
+          {isLoggedIn && (
+            <NavLink to="/status" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
+              <i className="bi bi-speedometer2"></i> My Dashboard
+            </NavLink>
+          )}
         </nav>
 
         {/* Header Right Actions */}
         <div className="header-right-actions">
-          {/* Notification Bell */}
-          <div className="header-actions" ref={notifRef} style={{ position: 'relative' }}>
-            <button
-              type="button"
-              className="btn-icon notification-bell-btn"
-              onClick={() => setIsNotifOpen(prev => !prev)}
-              aria-label="Notifications"
-              title="Notification Center"
-            >
-              <i className={`bi ${unreadCount > 0 ? 'bi-bell-fill' : 'bi-bell'}`}></i>
-              {unreadCount > 0 && (
-                <span className="notification-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>
-              )}
-            </button>
+          {/* Notification Bell (Only when logged in) */}
+          {isLoggedIn && (
+            <div className="header-actions" ref={notifRef} style={{ position: 'relative' }}>
+              <button
+                type="button"
+                className="btn-icon notification-bell-btn"
+                onClick={() => setIsNotifOpen(prev => !prev)}
+                aria-label="Notifications"
+                title="Notification Center"
+              >
+                <i className={`bi ${unreadCount > 0 ? 'bi-bell-fill' : 'bi-bell'}`}></i>
+                {unreadCount > 0 && (
+                  <span className="notification-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>
+                )}
+              </button>
 
-            {/* Notification Dropdown Drawer */}
-            {isNotifOpen && (
-              <div className="notification-drawer">
-                <div className="notification-drawer-header">
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <strong>Notifications</strong>
+              {/* Notification Dropdown Drawer */}
+              {isNotifOpen && (
+                <div className="notification-drawer">
+                  <div className="notification-drawer-header">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <strong>Notifications</strong>
+                      {unreadCount > 0 && (
+                        <span className="badge badge-neutral" style={{ fontSize: '0.72rem' }}>
+                          {unreadCount} unread
+                        </span>
+                      )}
+                    </div>
                     {unreadCount > 0 && (
-                      <span className="badge badge-neutral" style={{ fontSize: '0.72rem' }}>
-                        {unreadCount} unread
-                      </span>
+                      <button
+                        type="button"
+                        className="btn-text-sm"
+                        onClick={markAllRead}
+                        style={{ fontSize: '0.78rem', color: 'var(--color-primary)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}
+                      >
+                        Mark all read
+                      </button>
                     )}
                   </div>
-                  {unreadCount > 0 && (
-                    <button
-                      type="button"
-                      className="btn-text-sm"
-                      onClick={markAllRead}
-                      style={{ fontSize: '0.78rem', color: 'var(--color-primary)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}
-                    >
-                      Mark all read
-                    </button>
-                  )}
-                </div>
 
-                <div className="notification-drawer-body">
-                  {notifications.length === 0 ? (
-                    <div className="notification-empty">
-                      <i className="bi bi-bell-slash" style={{ fontSize: '1.6rem', color: 'var(--color-slate-400)' }}></i>
-                      <p style={{ margin: '0.4rem 0 0 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                        No notifications yet
-                      </p>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                        Automated match alerts &amp; photo requests appear here
-                      </span>
-                    </div>
-                  ) : (
-                    notifications.map((notif) => (
-                      <div
-                        key={notif.id}
-                        className={`notification-item ${notif.is_read ? 'read' : 'unread'}`}
-                        onClick={() => handleNotificationClick(notif)}
-                      >
-                        <div className="notification-item-icon">
-                          {notif.type === 'MATCH_FOUND' && <i className="bi bi-radar" style={{ color: 'var(--color-primary)' }}></i>}
-                          {notif.type === 'VERIFICATION_PROBE_REQUESTED' && <i className="bi bi-camera" style={{ color: '#d97706' }}></i>}
-                          {notif.type !== 'MATCH_FOUND' && notif.type !== 'VERIFICATION_PROBE_REQUESTED' && (
-                            <i className="bi bi-info-circle" style={{ color: 'var(--color-emerald)' }}></i>
-                          )}
-                        </div>
-                        <div className="notification-item-content">
-                          <div className="notification-item-title">{notif.title}</div>
-                          <div className="notification-item-message">{notif.message}</div>
-                          <div className="notification-item-time">
-                            {new Date(notif.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • {new Date(notif.created_at).toLocaleDateString()}
-                          </div>
-                        </div>
-                        {!notif.is_read && <span className="notification-dot"></span>}
+                  <div className="notification-drawer-body">
+                    {notifications.length === 0 ? (
+                      <div className="notification-empty">
+                        <i className="bi bi-bell-slash" style={{ fontSize: '1.6rem', color: 'var(--color-slate-400)' }}></i>
+                        <p style={{ margin: '0.4rem 0 0 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                          No notifications yet
+                        </p>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                          Automated match alerts &amp; photo requests appear here
+                        </span>
                       </div>
-                    ))
-                  )}
+                    ) : (
+                      notifications.map((notif) => (
+                        <div
+                          key={notif.id}
+                          className={`notification-item ${notif.is_read ? 'read' : 'unread'}`}
+                          onClick={() => handleNotificationClick(notif)}
+                        >
+                          <div className="notification-item-icon">
+                            {notif.type === 'MATCH_FOUND' && <i className="bi bi-radar" style={{ color: 'var(--color-primary)' }}></i>}
+                            {notif.type === 'VERIFICATION_PROBE_REQUESTED' && <i className="bi bi-camera" style={{ color: '#d97706' }}></i>}
+                            {notif.type !== 'MATCH_FOUND' && notif.type !== 'VERIFICATION_PROBE_REQUESTED' && (
+                              <i className="bi bi-info-circle" style={{ color: 'var(--color-emerald)' }}></i>
+                            )}
+                          </div>
+                          <div className="notification-item-content">
+                            <div className="notification-item-title">{notif.title}</div>
+                            <div className="notification-item-message">{notif.message}</div>
+                            <div className="notification-item-time">
+                              {new Date(notif.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • {new Date(notif.created_at).toLocaleDateString()}
+                            </div>
+                          </div>
+                          {!notif.is_read && <span className="notification-dot"></span>}
+                        </div>
+                      ))
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
 
           {/* User Profile Pill / Sign In */}
           {isLoggedIn ? (
@@ -275,9 +279,11 @@ export default function Header() {
           <NavLink to="/found" className={({ isActive }) => `mobile-nav-link ${isActive ? 'active' : ''}`} onClick={() => setIsMobileMenuOpen(false)}>
             <i className="bi bi-box-seam"></i> Report Found Property
           </NavLink>
-          <NavLink to="/status" className={({ isActive }) => `mobile-nav-link ${isActive ? 'active' : ''}`} onClick={() => setIsMobileMenuOpen(false)}>
-            <i className="bi bi-speedometer2"></i> My Dashboard &amp; Verification
-          </NavLink>
+          {isLoggedIn && (
+            <NavLink to="/status" className={({ isActive }) => `mobile-nav-link ${isActive ? 'active' : ''}`} onClick={() => setIsMobileMenuOpen(false)}>
+              <i className="bi bi-speedometer2"></i> My Dashboard &amp; Verification
+            </NavLink>
+          )}
           
           <div className="mobile-nav-footer">
             {isLoggedIn ? (

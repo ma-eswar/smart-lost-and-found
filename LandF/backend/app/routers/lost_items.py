@@ -77,14 +77,21 @@ def create_lost_item(payload: LostItemCreate, background_tasks: BackgroundTasks)
         
     auth_token = create_access_token({"sub": user_id, "email": email_clean, "name": payload.owner_name.strip()})
 
-    # Archive/replace prior active test listing for the same phone & product name
+    # Overwrite state: Archive prior active listings for same phone/user & product/category and clear stale match states
     cursor.execute("""
-    UPDATE lost_items 
-    SET status = 'ARCHIVED', is_archived = 1, updated_at = ?
-    WHERE (owner_phone = ? OR owner_phone LIKE ?) 
-      AND lower(product_name) = lower(?) 
+    SELECT id FROM lost_items 
+    WHERE (owner_phone = ? OR owner_phone LIKE ? OR user_id = ?) 
+      AND (lower(product_name) = lower(?) OR category = ?)
       AND status != 'RESOLVED'
-    """, (now_str, raw_phone, f"%{norm_phone}%" if norm_phone else raw_phone, payload.product_name.strip()))
+    """, (raw_phone, f"%{norm_phone}%" if norm_phone else raw_phone, user_id, payload.product_name.strip(), payload.category.strip()))
+    old_lost_rows = cursor.fetchall()
+    
+    for old_r in old_lost_rows:
+        old_id = old_r["id"]
+        cursor.execute("UPDATE lost_items SET status = 'ARCHIVED', is_archived = 1, updated_at = ? WHERE id = ?", (now_str, old_id))
+        cursor.execute("DELETE FROM match_evaluations WHERE lost_item_id = ?", (old_id,))
+        cursor.execute("DELETE FROM verification_probes WHERE lost_item_id = ?", (old_id,))
+        cursor.execute("UPDATE release_authorizations SET is_used = 1 WHERE lost_item_id = ? AND is_used = 0", (old_id,))
 
     # Insert lost item
     cursor.execute("""

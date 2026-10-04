@@ -107,6 +107,8 @@ def init_db():
 
     ensure_column_exists(cursor, "lost_items", "user_id", "TEXT")
     ensure_column_exists(cursor, "found_items", "user_id", "TEXT")
+    ensure_column_exists(cursor, "lost_items", "is_archived", "INTEGER NOT NULL DEFAULT 0")
+    ensure_column_exists(cursor, "found_items", "is_archived", "INTEGER NOT NULL DEFAULT 0")
 
     # 4. verified_desks
     cursor.execute("""
