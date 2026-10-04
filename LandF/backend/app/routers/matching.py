@@ -253,22 +253,26 @@ def submit_finder_probe_response(probe_id: str, payload: SubmitProbeResponseRequ
             passcode_issued = passcode
             auth_id = generate_intake_id("AUTH")
             eval_id = f"EVAL-{probe['lost_item_id'][-6:]}-{probe['found_item_id'][-6:]}"
-            expires_at = (datetime.now() + timedelta(days=7)).isoformat()
+            owner_name = lost_row["owner_name"] if (lost_row and lost_row["owner_name"]) else "Verified Owner"
+            owner_phone = lost_row["owner_phone"] if (lost_row and lost_row["owner_phone"]) else ""
+            admin_pin = ADMIN_PIN or "8899"
 
             cursor.execute("""
             INSERT INTO release_authorizations (
-                id, lost_item_id, found_item_id, evaluation_id, owner_phone,
-                passcode, is_used, expires_at, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?)
+                id, lost_item_id, found_item_id, evaluation_id, owner_phone, owner_name,
+                authorized_admin_pin, passcode, expires_at, is_used, used_at, used_by_desk_id,
+                used_by_officer, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL, NULL, NULL, ?)
             """, (
                 auth_id,
                 probe["lost_item_id"],
                 probe["found_item_id"],
                 eval_id,
-                lost_row["owner_phone"] if lost_row else "",
+                owner_phone,
+                owner_name,
+                admin_pin,
                 passcode,
                 expires_at,
-                now_str,
                 now_str
             ))
 
