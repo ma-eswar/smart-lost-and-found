@@ -19,7 +19,8 @@ export default function Archived() {
     setLoading(true);
     try {
       const data = await api.getArchivedItems(adminPin);
-      setArchivedRecords(data.archived_items || []);
+      const list = Array.isArray(data) ? data : (data.archived_items || []);
+      setArchivedRecords(list);
     } catch (err) {
       toast.error(err);
     } finally {
@@ -29,13 +30,17 @@ export default function Archived() {
 
   const filtered = archivedRecords.filter(item => {
     const term = searchTerm.toLowerCase();
+    const title = item.name || item.lost_title || item.found_title || item.product_name || item.object_name || '';
+    const claimant = item.claimant_name || item.owner_name || '';
+    const finder = item.finder_name || '';
+    const cat = item.category || '';
+    const id = item.id || item.lost_item_id || item.found_item_id || '';
     return (
-      (item.lost_title && item.lost_title.toLowerCase().includes(term)) ||
-      (item.found_title && item.found_title.toLowerCase().includes(term)) ||
-      (item.claimant_name && item.claimant_name.toLowerCase().includes(term)) ||
-      (item.finder_name && item.finder_name.toLowerCase().includes(term)) ||
-      (item.category && item.category.toLowerCase().includes(term)) ||
-      (item.lost_item_id && item.lost_item_id.toLowerCase().includes(term))
+      title.toLowerCase().includes(term) ||
+      claimant.toLowerCase().includes(term) ||
+      finder.toLowerCase().includes(term) ||
+      cat.toLowerCase().includes(term) ||
+      id.toLowerCase().includes(term)
     );
   });
 
@@ -110,24 +115,24 @@ export default function Archived() {
             </thead>
             <tbody>
               {filtered.map((item, idx) => (
-                <tr key={item.lost_item_id || idx}>
+                <tr key={item.id || item.lost_item_id || idx}>
                   <td>
-                    <strong>{item.lost_title || item.found_title || 'Item #' + (item.lost_item_id || item.found_item_id)}</strong>
+                    <strong>{item.name || item.lost_title || item.found_title || item.product_name || item.object_name || ('Item #' + (item.id || idx))}</strong>
                     <span className="badge badge-neutral" style={{ display: 'block', width: 'fit-content', marginTop: '0.2rem', fontSize: '0.72rem' }}>
-                      {item.category || 'General'}
+                      {item.item_type ? `${item.item_type} • ` : ''}{item.category || 'General'}
                     </span>
                   </td>
                   <td>
-                    <div>{item.claimant_name || 'Verified Owner'}</div>
-                    <span className="field-hint">{item.claimant_phone || 'Private'}</span>
+                    <div>{item.claimant_name || item.owner_name || 'Verified Owner'}</div>
+                    <span className="field-hint">{item.claimant_phone || item.owner_phone || 'Protected'}</span>
                   </td>
                   <td>
-                    <div>{item.finder_name || 'Anonymous Finder'}</div>
-                    {item.finder_upi && <code style={{ fontSize: '0.75rem' }}>UPI: {item.finder_upi}</code>}
+                    <div>{item.finder_name || 'Verified Finder'}</div>
+                    {(item.finder_upi || item.finder_upi_id) && <code style={{ fontSize: '0.75rem' }}>UPI: {item.finder_upi || item.finder_upi_id}</code>}
                   </td>
                   <td>
                     <span className="badge badge-neutral">
-                      <i className="bi bi-geo-alt"></i> {item.desk_id || 'Campus Desk'}
+                      <i className="bi bi-geo-alt"></i> {item.desk_id || 'Central Desk'}
                     </span>
                     {item.officer_name && <span className="field-hint" style={{ display: 'block' }}>By: {item.officer_name}</span>}
                   </td>
@@ -135,15 +140,15 @@ export default function Archived() {
                     {item.escrow_amount ? (
                       <span className="badge badge-verified">₹{item.escrow_amount} Paid</span>
                     ) : (
-                      <span className="field-hint">None</span>
+                      <span className="field-hint">Completed</span>
                     )}
                   </td>
                   <td className="field-hint">
-                    {item.archived_at ? new Date(item.archived_at).toLocaleString() : 'Recently'}
+                    {item.resolved_at || item.archived_at ? new Date(item.resolved_at || item.archived_at).toLocaleString() : 'Recently'}
                   </td>
                   <td>
                     <span className="badge badge-neutral">
-                      <i className="bi bi-check2-all"></i> RESOLVED
+                      <i className="bi bi-check2-all"></i> {item.status || 'RESOLVED'}
                     </span>
                   </td>
                 </tr>

@@ -23,7 +23,6 @@ def lookup_user_submissions(payload: StatusLookupRequest):
     cursor.execute("""
     SELECT * FROM lost_items 
     WHERE (owner_phone = ? OR owner_phone LIKE ? OR access_token = ? OR id = ? OR user_id = ?)
-      AND status != 'ARCHIVED' AND (is_archived IS NULL OR is_archived = 0)
     ORDER BY created_at DESC
     """, (query, f"%{norm_phone}%" if norm_phone else query, query, query, query))
     lost_rows = cursor.fetchall()
@@ -32,7 +31,6 @@ def lookup_user_submissions(payload: StatusLookupRequest):
     cursor.execute("""
     SELECT * FROM found_items 
     WHERE (finder_phone = ? OR finder_phone LIKE ? OR access_token = ? OR id = ? OR desk_intake_receipt_id = ? OR user_id = ?)
-      AND status != 'ARCHIVED' AND (is_archived IS NULL OR is_archived = 0)
     ORDER BY created_at DESC
     """, (query, f"%{norm_phone}%" if norm_phone else query, query, query, query, query))
     found_rows = cursor.fetchall()

@@ -88,13 +88,13 @@ def create_desk_found_item(payload: FoundItemDeskCreate, background_tasks: Backg
         
     auth_token = create_access_token({"sub": user_id, "email": email_clean, "name": payload.finder_name.strip()})
 
-    # Overwrite state: Archive prior active listings for same phone/user & object/category and clear stale match states
+    # Overwrite state: Archive prior active listings for same phone/user & identical object name
     cursor.execute("""
     SELECT id FROM found_items 
     WHERE (finder_phone = ? OR finder_phone LIKE ? OR user_id = ?) 
-      AND (lower(object_name) = lower(?) OR category = ?)
-      AND status != 'RESOLVED'
-    """, (raw_phone, f"%{norm_phone}%" if norm_phone else raw_phone, user_id, payload.object_name.strip(), payload.category.strip()))
+      AND lower(object_name) = lower(?)
+      AND status NOT IN ('RESOLVED', 'ARCHIVED')
+    """, (raw_phone, f"%{norm_phone}%" if norm_phone else raw_phone, user_id, payload.object_name.strip()))
     old_found_rows = cursor.fetchall()
     
     for old_r in old_found_rows:
@@ -235,13 +235,13 @@ def create_direct_found_item(payload: FoundItemDirectCreate, background_tasks: B
         
     auth_token = create_access_token({"sub": user_id, "email": email_clean, "name": payload.finder_name.strip()})
 
-    # Overwrite state: Archive prior active listings for same phone/user & object/category and clear stale match states
+    # Overwrite state: Archive prior active listings for same phone/user & identical object name
     cursor.execute("""
     SELECT id FROM found_items 
     WHERE (finder_phone = ? OR finder_phone LIKE ? OR user_id = ?) 
-      AND (lower(object_name) = lower(?) OR category = ?)
-      AND status != 'RESOLVED'
-    """, (raw_phone, f"%{norm_phone}%" if norm_phone else raw_phone, user_id, payload.object_name.strip(), payload.category.strip()))
+      AND lower(object_name) = lower(?)
+      AND status NOT IN ('RESOLVED', 'ARCHIVED')
+    """, (raw_phone, f"%{norm_phone}%" if norm_phone else raw_phone, user_id, payload.object_name.strip()))
     old_found_rows = cursor.fetchall()
     
     for old_r in old_found_rows:

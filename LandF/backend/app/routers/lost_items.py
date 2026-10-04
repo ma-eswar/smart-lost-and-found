@@ -77,13 +77,13 @@ def create_lost_item(payload: LostItemCreate, background_tasks: BackgroundTasks)
         
     auth_token = create_access_token({"sub": user_id, "email": email_clean, "name": payload.owner_name.strip()})
 
-    # Overwrite state: Archive prior active listings for same phone/user & product/category and clear stale match states
+    # Overwrite state: Archive prior active listings for same phone/user & identical product name
     cursor.execute("""
     SELECT id FROM lost_items 
     WHERE (owner_phone = ? OR owner_phone LIKE ? OR user_id = ?) 
-      AND (lower(product_name) = lower(?) OR category = ?)
-      AND status != 'RESOLVED'
-    """, (raw_phone, f"%{norm_phone}%" if norm_phone else raw_phone, user_id, payload.product_name.strip(), payload.category.strip()))
+      AND lower(product_name) = lower(?)
+      AND status NOT IN ('RESOLVED', 'ARCHIVED')
+    """, (raw_phone, f"%{norm_phone}%" if norm_phone else raw_phone, user_id, payload.product_name.strip()))
     old_lost_rows = cursor.fetchall()
     
     for old_r in old_lost_rows:

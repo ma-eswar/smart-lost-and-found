@@ -103,8 +103,9 @@ export default function Admin() {
     setMatchResults(null);
     try {
       const res = await api.evaluateMatches(lostItemId, pin);
-      setMatchResults(res);
-      toast.success(`Matching evaluated: ${res.evaluations?.length || 0} candidate(s) compared.`);
+      const candidateList = res.candidates || res.evaluations || [];
+      setMatchResults({ ...res, evaluations: candidateList });
+      toast.success(`Matching evaluated: ${candidateList.length} candidate(s) compared.`);
       fetchAdminData();
     } catch (err) {
       toast.error(err);
@@ -119,7 +120,8 @@ export default function Admin() {
       toast.success(`Handover Passcode Generated: ${res.handover_passcode}`);
       if (evaluatingId) {
         const updatedResults = await api.getMatchResults(evaluatingId, pin);
-        setMatchResults(updatedResults);
+        const candidateList = updatedResults.candidates || updatedResults.evaluations || [];
+        setMatchResults({ ...updatedResults, evaluations: candidateList });
       }
       fetchAdminData();
     } catch (err) {
@@ -133,7 +135,8 @@ export default function Admin() {
       toast.success(`Photo Verification Request created (Probe ID: ${res.probe_id}).`);
       if (evaluatingId) {
         const updatedResults = await api.getMatchResults(evaluatingId, pin);
-        setMatchResults(updatedResults);
+        const candidateList = updatedResults.candidates || updatedResults.evaluations || [];
+        setMatchResults({ ...updatedResults, evaluations: candidateList });
       }
       fetchAdminData();
     } catch (err) {

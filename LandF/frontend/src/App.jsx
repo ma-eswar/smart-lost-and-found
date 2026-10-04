@@ -9,31 +9,34 @@ import Admin from './pages/Admin';
 import Archived from './pages/Archived';
 import { ToastProvider } from './components/Toast';
 import { AuthProvider } from './components/AuthContext';
+import ErrorBoundary from './components/ErrorBoundary';
 
 export default function App() {
   return (
-    <ToastProvider>
-      <AuthProvider>
-        <div className="app-layout">
-          <Header />
-          <main className="main-content">
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/lost" element={<ReportLost />} />
-              <Route path="/found" element={<ReportFound />} />
-              <Route path="/status" element={<TrackStatus />} />
-              <Route path="/admin" element={<Admin />} />
-              <Route path="/archive" element={<Archived />} />
-            </Routes>
-          </main>
-          <footer className="footer py-4 mt-5 bg-white border-top text-center text-muted small">
-            <div className="container">
-              <p className="mb-1">Safe Recover &bull; Secure, Confidential Lost &amp; Found Portal</p>
-              <p className="mb-0">Automated Smart Matching &bull; Verified Physical Handover</p>
-            </div>
-          </footer>
-        </div>
-      </AuthProvider>
-    </ToastProvider>
+    <ErrorBoundary>
+      <ToastProvider>
+        <AuthProvider>
+          <div className="app-layout">
+            <Header />
+            <main className="main-content">
+              <Routes>
+                <Route path="/" element={<Home />} />
+                <Route path="/lost" element={<ReportLost />} />
+                <Route path="/found" element={<ReportFound />} />
+                <Route path="/status" element={<TrackStatus />} />
+                <Route path="/admin" element={<Admin />} />
+                <Route path="/archive" element={<Archived />} />
+              </Routes>
+            </main>
+            <footer className="footer py-4 mt-5 bg-white border-top text-center text-muted small">
+              <div className="container">
+                <p className="mb-1">Safe Recover &bull; Secure, Confidential Lost &amp; Found Portal</p>
+                <p className="mb-0">Automated Smart Matching &bull; Verified Physical Handover</p>
+              </div>
+            </footer>
+          </div>
+        </AuthProvider>
+      </ToastProvider>
+    </ErrorBoundary>
   );
 }
