@@ -42,6 +42,7 @@ def get_all_lost_items(include_archived: bool = False, x_admin_pin: Optional[str
     for r in rows:
         items.append({
             "id": r["id"],
+            "title": r["product_name"],
             "product_name": r["product_name"],
             "category": r["category"],
             "description": r["description"],
@@ -50,12 +51,15 @@ def get_all_lost_items(include_archived: bool = False, x_admin_pin: Optional[str
             "reward_amount": r["reward_amount"],
             "reward_currency": r["reward_currency"],
             "escrow_status": r["escrow_status"],
+            "claimant_name": r["owner_name"],
             "owner_name": r["owner_name"],
+            "contact_phone": r["owner_phone"],
             "owner_phone": r["owner_phone"],
             "backup_contact": r["backup_contact"],
             "owner_email": r["owner_email"],
             "residential_address": r["residential_address"],
             "govt_id_last4": r["govt_id_last4"],
+            "location_name": r["last_seen_location"],
             "last_seen_location": r["last_seen_location"],
             "latitude": r["latitude"],
             "longitude": r["longitude"],

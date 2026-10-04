@@ -32,7 +32,8 @@ class TokenResponse(BaseModel):
 # Secret Point & Lost Item Schemas
 # -------------------------------------------------------------
 class SecretPoint(BaseModel):
-    point: str = Field(..., min_length=3, description="Secret flaw or hidden mark only the owner knows")
+    point: str = Field(..., min_length=2, description="Confirmation detail / answer only the owner knows")
+    question: Optional[str] = Field(None, description="Identifying question or confirmation prompt")
     photo_url: Optional[str] = Field(None, description="Optional photo verifying this secret point")
 
 class LostItemCreate(BaseModel):

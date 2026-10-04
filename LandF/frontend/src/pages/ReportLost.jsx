@@ -2,6 +2,14 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 
+const QUICK_QUESTION_TEMPLATES = [
+  'What sticker, decal, or emblem is on the item?',
+  'What is set as the lock screen wallpaper or casing color?',
+  'What accessory or item is inside the case/pocket?',
+  'Are there any specific scratches, cracks, or flaws?',
+  'What is the last 4 digits of serial or brand tag text?'
+];
+
 export default function ReportLost() {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
@@ -13,7 +21,12 @@ export default function ReportLost() {
     category: 'Electronics',
     description: '',
     reward_amount: 0,
-    secret_point: '',
+    confirmation_points: [
+      {
+        question: 'What unique sticker, scratch, or marking is on the item?',
+        point: ''
+      }
+    ],
     location: '',
     latitude: 12.9725,
     longitude: 77.5958,
@@ -30,13 +43,56 @@ export default function ReportLost() {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  // Handlers for dynamic confirmation points (up to 3)
+  const handlePointChange = (index, field, value) => {
+    setFormData(prev => {
+      const updated = [...prev.confirmation_points];
+      updated[index] = { ...updated[index], [field]: value };
+      return { ...prev, confirmation_points: updated };
+    });
+  };
+
+  const addPoint = () => {
+    if (formData.confirmation_points.length >= 3) {
+      alert('You can add up to 3 confirmation details / questions.');
+      return;
+    }
+    setFormData(prev => ({
+      ...prev,
+      confirmation_points: [
+        ...prev.confirmation_points,
+        { question: '', point: '' }
+      ]
+    }));
+  };
+
+  const removePoint = (index) => {
+    if (formData.confirmation_points.length <= 1) {
+      alert('At least one confirmation detail is required.');
+      return;
+    }
+    setFormData(prev => ({
+      ...prev,
+      confirmation_points: prev.confirmation_points.filter((_, i) => i !== index)
+    }));
+  };
+
   const autofillSample = () => {
     setFormData({
       product_name: 'Apple MacBook Pro 14 M2 Space Gray',
       category: 'Electronics',
       description: 'Space Gray 14-inch MacBook Pro M2 with matte display and dark case.',
       reward_amount: 2000,
-      secret_point: 'Small hairline crack on the right hinge directly next to the power button',
+      confirmation_points: [
+        {
+          question: 'What physical mark or flaw is on the hinge/casing?',
+          point: 'Small hairline crack on the right hinge directly next to the power button'
+        },
+        {
+          question: 'What is set on the keyboard palm rest area?',
+          point: 'A tiny blue GitHub Octocat sticker near the right bottom edge'
+        }
+      ],
       location: 'Central Library 2nd Floor, Table 14',
       latitude: 12.9725,
       longitude: 77.5958,
@@ -84,12 +140,27 @@ export default function ReportLost() {
     e.preventDefault();
     setLoading(true);
 
+    const validPoints = formData.confirmation_points
+      .filter(p => p.point.trim().length > 0)
+      .map(p => ({
+        question: p.question.trim() || 'Confirmation Detail',
+        point: p.point.trim(),
+        photo_url: null
+      }));
+
+    if (validPoints.length === 0) {
+      alert('Please provide at least one ownership confirmation detail / answer.');
+      setLoading(false);
+      setStep(2);
+      return;
+    }
+
     const payload = {
       product_name: formData.product_name.trim(),
       category: formData.category,
       description: formData.description.trim(),
       reference_photos: [],
-      secret_points: [{ point: formData.secret_point.trim(), photo_url: null }],
+      secret_points: validPoints,
       reward_amount: parseFloat(formData.reward_amount || 0),
       reward_currency: 'INR',
       owner_name: formData.owner_name.trim(),
@@ -133,7 +204,7 @@ export default function ReportLost() {
         </div>
         {[
           { num: 1, label: 'Item Details' },
-          { num: 2, label: 'Secret Mark' },
+          { num: 2, label: 'Ownership Proof' },
           { num: 3, label: 'Location & Time' },
           { num: 4, label: 'Contact Info' },
           { num: 5, label: 'Review & Submit' }
@@ -181,7 +252,7 @@ export default function ReportLost() {
                 name="description" 
                 className="form-control" 
                 rows="3" 
-                placeholder="Describe color, casing, surface stickers, condition..." 
+                placeholder="Describe color, casing, brand, visible specifications..." 
                 value={formData.description} 
                 onChange={handleChange} 
                 required 
@@ -209,31 +280,120 @@ export default function ReportLost() {
                   else setStep(2);
                 }}
               >
-                Next: Secret Mark <i className="bi bi-arrow-right"></i>
+                Next: Ownership Proof <i className="bi bi-arrow-right"></i>
               </button>
             </div>
           </div>
         )}
 
-        {/* Step 2: Secret Identification Mark */}
+        {/* Step 2: Special Ownership Confirmation Details (Up to 3 Questions) */}
         {step === 2 && (
           <div className="form-card">
-            <h3>Step 2: Confidential Secret Mark</h3>
-            <p className="field-hint" style={{ color: 'var(--text-secondary)' }}>
-              Mention a hidden flaw, scratch, or marking that only the true owner would know. When an item is found, the system asks the finder to photograph that area without revealing what mark is there.
-            </p>
-            <div className="form-group">
-              <label>Secret Identification Feature *</label>
-              <input 
-                type="text" 
-                name="secret_point" 
-                className="form-control" 
-                placeholder="e.g. Small hairline crack on right hinge directly next to the power button" 
-                value={formData.secret_point} 
-                onChange={handleChange} 
-                required 
-              />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem' }}>
+              <div>
+                <h3>Step 2: Special Ownership Confirmation Details</h3>
+                <p className="field-hint" style={{ color: 'var(--text-secondary)', marginBottom: '1rem' }}>
+                  Provide <strong>1 to 3 special identifying details or confirmation questions</strong> that only the genuine owner would know (e.g. unique scratch, stickers, lock screen wallpaper, internal pocket contents).
+                  <br />
+                  <span style={{ color: '#059669', fontWeight: 500 }}>
+                    <i className="bi bi-shield-lock"></i> Kept 100% confidential — never revealed to the public or finders.
+                  </span>
+                </p>
+              </div>
+              <span className="badge badge-neutral" style={{ fontSize: '0.85rem' }}>
+                {formData.confirmation_points.length} / 3 Details Added
+              </span>
             </div>
+
+            {formData.confirmation_points.map((pt, idx) => (
+              <div 
+                key={idx} 
+                style={{ 
+                  background: 'var(--color-slate-50, #f8fafc)', 
+                  border: '1px solid var(--color-slate-200, #e2e8f0)', 
+                  borderRadius: 'var(--radius-sm, 8px)', 
+                  padding: '1.25rem', 
+                  marginBottom: '1rem' 
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                  <strong style={{ fontSize: '0.95rem' }}>
+                    <i className="bi bi-patch-check-fill" style={{ color: 'var(--color-primary)' }}></i> Confirmation Detail #{idx + 1} {idx === 0 ? '(Required)' : '(Optional)'}
+                  </strong>
+                  {formData.confirmation_points.length > 1 && (
+                    <button 
+                      type="button" 
+                      className="btn btn-outline btn-sm" 
+                      style={{ color: '#dc2626', borderColor: '#fca5a5' }} 
+                      onClick={() => removePoint(idx)}
+                    >
+                      <i className="bi bi-trash"></i> Remove
+                    </button>
+                  )}
+                </div>
+
+                <div className="form-group" style={{ marginBottom: '0.75rem' }}>
+                  <label style={{ fontSize: '0.88rem' }}>Verification Question / Feature Title</label>
+                  <input 
+                    type="text" 
+                    className="form-control" 
+                    placeholder="e.g. What sticker is on the laptop, or what is in the side pocket?" 
+                    value={pt.question} 
+                    onChange={(e) => handlePointChange(idx, 'question', e.target.value)} 
+                  />
+                  
+                  {/* Preset Template Chips */}
+                  <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', marginTop: '0.4rem' }}>
+                    {QUICK_QUESTION_TEMPLATES.map((tpl, tplIdx) => (
+                      <button
+                        key={tplIdx}
+                        type="button"
+                        className="badge"
+                        style={{ 
+                          background: '#e0f2fe', 
+                          color: '#0369a1', 
+                          border: '1px solid #bae6fd', 
+                          cursor: 'pointer', 
+                          padding: '0.25rem 0.5rem',
+                          fontSize: '0.75rem',
+                          fontWeight: 500
+                        }}
+                        onClick={() => handlePointChange(idx, 'question', tpl)}
+                      >
+                        + {tpl.split(' ').slice(0, 4).join(' ')}...
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="form-group" style={{ marginBottom: '0' }}>
+                  <label style={{ fontSize: '0.88rem' }}>Confidential Detail / Answer *</label>
+                  <input 
+                    type="text" 
+                    className="form-control" 
+                    placeholder="e.g. Small hairline crack on right hinge directly next to power button" 
+                    value={pt.point} 
+                    onChange={(e) => handlePointChange(idx, 'point', e.target.value)} 
+                    required={idx === 0}
+                  />
+                  <span className="field-hint" style={{ fontSize: '0.78rem' }}>
+                    The finder will be asked to verify or photograph this specific area without being told what is there.
+                  </span>
+                </div>
+              </div>
+            ))}
+
+            {formData.confirmation_points.length < 3 && (
+              <button 
+                type="button" 
+                className="btn btn-outline" 
+                style={{ width: '100%', marginBottom: '1.25rem', borderStyle: 'dashed' }} 
+                onClick={addPoint}
+              >
+                <i className="bi bi-plus-circle"></i> Add Another Confirmation Detail (Max 3)
+              </button>
+            )}
+
             <div className="wizard-actions">
               <button type="button" className="btn btn-outline" onClick={() => setStep(1)}>
                 <i className="bi bi-arrow-left"></i> Back
@@ -242,8 +402,11 @@ export default function ReportLost() {
                 type="button" 
                 className="btn btn-primary" 
                 onClick={() => {
-                  if (!formData.secret_point) alert('Please describe one secret mark');
-                  else setStep(3);
+                  if (!formData.confirmation_points[0].point.trim()) {
+                    alert('Please provide at least one ownership confirmation detail.');
+                  } else {
+                    setStep(3);
+                  }
                 }}
               >
                 Next: Location &amp; Time <i className="bi bi-arrow-right"></i>
@@ -403,7 +566,19 @@ export default function ReportLost() {
               <div className="review-row"><span>Item Name:</span><strong>{formData.product_name}</strong></div>
               <div className="review-row"><span>Category:</span><strong>{formData.category}</strong></div>
               <div className="review-row"><span>Description:</span><span>{formData.description}</span></div>
-              <div className="review-row"><span>Secret Mark:</span><span>{formData.secret_point}</span></div>
+              
+              <div className="review-row" style={{ alignItems: 'flex-start' }}>
+                <span>Ownership Confirmation ({formData.confirmation_points.filter(p => p.point).length}):</span>
+                <div>
+                  {formData.confirmation_points.filter(p => p.point).map((p, i) => (
+                    <div key={i} style={{ marginBottom: '0.35rem' }}>
+                      <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Q{i+1}: {p.question || 'Identifying Feature'}</span>
+                      <div><strong>{p.point}</strong></div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               <div className="review-row"><span>Reward:</span><strong>₹{formData.reward_amount || '0'}</strong></div>
               <div className="review-row"><span>Location:</span><strong>{formData.location}</strong></div>
               <div className="review-row"><span>Date &amp; Time:</span><span>{formData.last_seen_time}</span></div>

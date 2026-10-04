@@ -35,7 +35,7 @@ export default function Home() {
           <div style={{ fontSize: '2.2rem', color: '#dc2626' }}><i className="bi bi-search"></i></div>
           <h3>I Lost Something</h3>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.92rem', flexGrow: 1 }}>
-            File a report with basic description and one secret mark. When a matching item is registered, we notify you for safe collection.
+            File a report with item details and confidential confirmation questions. When a matching item is registered, we verify ownership for safe collection.
           </p>
           <button className="btn btn-primary" style={{ width: '100%' }}>
             Report Lost Item <i className="bi bi-arrow-right"></i>

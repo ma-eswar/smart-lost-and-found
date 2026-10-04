@@ -266,7 +266,7 @@ export default function Admin() {
                       <th>Report ID</th>
                       <th>Item & Category</th>
                       <th>Location / Landmark</th>
-                      <th>Secret Mark</th>
+                      <th>Confirmation Details</th>
                       <th>Owner Contact</th>
                       <th>Status</th>
                       <th className="text-end">Actions</th>
@@ -277,19 +277,28 @@ export default function Admin() {
                       <tr key={item.id}>
                         <td><code>{item.id}</code></td>
                         <td>
-                          <div className="fw-bold">{item.title}</div>
+                          <div className="fw-bold">{item.title || item.product_name}</div>
                           <small className="text-muted badge bg-light text-dark">{item.category}</small>
                         </td>
                         <td>
-                          <small className="d-block">{item.location_name || 'Not specified'}</small>
+                          <small className="d-block">{item.location_name || item.last_seen_location || 'Not specified'}</small>
                           {item.latitude && item.longitude && (
                             <small className="text-muted">({item.latitude.toFixed(4)}, {item.longitude.toFixed(4)})</small>
                           )}
                         </td>
                         <td>
-                          <span className="small text-truncate d-inline-block" style={{ maxWidth: '180px' }} title={item.secret_point}>
-                            {item.secret_point}
-                          </span>
+                          {item.secret_points && item.secret_points.length > 0 ? (
+                            <div className="small" style={{ maxWidth: '220px' }}>
+                              <span className="badge bg-light text-dark mb-1">{item.secret_points.length} Verification Detail(s)</span>
+                              <div className="text-truncate" title={item.secret_points.map((p, i) => `${p.question ? p.question + ': ' : ''}${p.point || p}`).join(' | ')}>
+                                {item.secret_points[0].point || item.secret_points[0]}
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="small text-truncate d-inline-block" style={{ maxWidth: '180px' }} title={item.secret_point}>
+                              {item.secret_point || '—'}
+                            </span>
+                          )}
                         </td>
                         <td>
                           <div>{item.contact_phone}</div>

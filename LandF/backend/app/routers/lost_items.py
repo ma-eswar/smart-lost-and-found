@@ -29,6 +29,7 @@ def create_lost_item(payload: LostItemCreate, background_tasks: BackgroundTasks)
     for sp in payload.secret_points:
         photo_path = save_base64_image(sp.photo_url) if sp.photo_url else None
         processed_secret_points.append({
+            "question": sp.question.strip() if sp.question else None,
             "point": sp.point.strip(),
             "photo_url": photo_path
         })

@@ -108,7 +108,10 @@ export default function TrackStatus() {
                         {item.status}
                       </span>
                       <h4 style={{ marginTop: '0.3rem' }}>{item.product_name}</h4>
-                      <span className="field-hint">Report ID: {item.id} • Last Seen: {item.last_seen_location}</span>
+                      <span className="field-hint">
+                        Report ID: {item.id} • Last Seen: {item.last_seen_location}
+                        {item.secret_points_count > 0 && ` • ${item.secret_points_count} Confirmation Detail(s) Saved`}
+                      </span>
                     </div>
                     {item.status !== 'ARCHIVED' && (
                       <button type="button" className="btn btn-outline btn-sm" onClick={() => handleRunMatch(item.id)}>
