@@ -112,53 +112,89 @@ def verify_otp(payload: OTPVerify):
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    cursor.execute("""
-    SELECT id, full_name, email, phone, role, created_at FROM users
-    WHERE phone = ? OR phone LIKE ?
-    """, (raw_phone, f"%{norm_phone}%"))
-    user = cursor.fetchone()
-
-    now_str = datetime.now().isoformat()
-
-    if not user:
-        # Check lost_items or found_items for details to create user
-        cursor.execute("SELECT owner_name, owner_email, owner_phone FROM lost_items WHERE owner_phone LIKE ? LIMIT 1", (f"%{norm_phone}%",))
-        lost_row = cursor.fetchone()
-        
-        cursor.execute("SELECT finder_name, finder_email, finder_phone FROM found_items WHERE finder_phone LIKE ? LIMIT 1", (f"%{norm_phone}%",))
-        found_row = cursor.fetchone()
-
-        full_name = "Campus User"
-        email = f"user_{norm_phone}@campus.edu"
-
-        if lost_row:
-            full_name = lost_row["owner_name"]
-            email = lost_row["owner_email"] or email
-        elif found_row:
-            full_name = found_row["finder_name"]
-            email = found_row["finder_email"] or email
-
-        user_id = generate_intake_id("USER")
-        pwd_hash = hash_password("123456")
-
+    try:
         cursor.execute("""
-        INSERT INTO users (id, full_name, email, phone, password_hash, role, created_at)
-        VALUES (?, ?, ?, ?, ?, 'user', ?)
-        """, (user_id, full_name, email, raw_phone, pwd_hash, now_str))
-        conn.commit()
+        SELECT id, full_name, email, phone, role, created_at FROM users
+        WHERE phone = ? OR phone LIKE ?
+        """, (raw_phone, f"%{norm_phone}%" if norm_phone else raw_phone))
+        user_row = cursor.fetchone()
 
-        user = {
-            "id": user_id,
-            "full_name": full_name,
-            "email": email,
-            "phone": raw_phone,
-            "role": "user",
-            "created_at": now_str
-        }
-    else:
-        user = dict(user)
+        now_str = datetime.now().isoformat()
 
-    conn.close()
+        if not user_row:
+            # Check lost_items or found_items for details to create user
+            cursor.execute("SELECT owner_name, owner_email, owner_phone FROM lost_items WHERE owner_phone = ? OR owner_phone LIKE ? LIMIT 1", (raw_phone, f"%{norm_phone}%" if norm_phone else raw_phone))
+            lost_row = cursor.fetchone()
+            
+            cursor.execute("SELECT finder_name, finder_email, finder_phone FROM found_items WHERE finder_phone = ? OR finder_phone LIKE ? LIMIT 1", (raw_phone, f"%{norm_phone}%" if norm_phone else raw_phone))
+            found_row = cursor.fetchone()
+
+            full_name = "Campus User"
+            candidate_email = f"user_{norm_phone}@campus.edu"
+
+            if lost_row and lost_row["owner_name"]:
+                full_name = lost_row["owner_name"]
+                if lost_row["owner_email"]:
+                    candidate_email = lost_row["owner_email"].strip().lower()
+            elif found_row and found_row["finder_name"]:
+                full_name = found_row["finder_name"]
+                if found_row["finder_email"]:
+                    candidate_email = found_row["finder_email"].strip().lower()
+
+            # Check if this email is already registered to a user
+            cursor.execute("SELECT id, full_name, email, phone, role, created_at FROM users WHERE lower(email) = ?", (candidate_email,))
+            existing_by_email = cursor.fetchone()
+
+            if existing_by_email:
+                # Associate new/clean phone number with this existing user account
+                cursor.execute("UPDATE users SET phone = ? WHERE id = ?", (raw_phone, existing_by_email["id"]))
+                conn.commit()
+                user = {
+                    "id": existing_by_email["id"],
+                    "full_name": existing_by_email["full_name"],
+                    "email": existing_by_email["email"],
+                    "phone": raw_phone,
+                    "role": existing_by_email["role"],
+                    "created_at": existing_by_email["created_at"]
+                }
+            else:
+                user_id = generate_intake_id("USER")
+                pwd_hash = hash_password("123456")
+
+                try:
+                    cursor.execute("""
+                    INSERT INTO users (id, full_name, email, phone, password_hash, role, created_at)
+                    VALUES (?, ?, ?, ?, ?, 'user', ?)
+                    """, (user_id, full_name, candidate_email, raw_phone, pwd_hash, now_str))
+                    conn.commit()
+                    user = {
+                        "id": user_id,
+                        "full_name": full_name,
+                        "email": candidate_email,
+                        "phone": raw_phone,
+                        "role": "user",
+                        "created_at": now_str
+                    }
+                except Exception:
+                    # Fallback unique email if conflict occurred
+                    unique_email = f"user_{norm_phone}_{user_id[-4:]}@campus.edu"
+                    cursor.execute("""
+                    INSERT INTO users (id, full_name, email, phone, password_hash, role, created_at)
+                    VALUES (?, ?, ?, ?, ?, 'user', ?)
+                    """, (user_id, full_name, unique_email, raw_phone, pwd_hash, now_str))
+                    conn.commit()
+                    user = {
+                        "id": user_id,
+                        "full_name": full_name,
+                        "email": unique_email,
+                        "phone": raw_phone,
+                        "role": "user",
+                        "created_at": now_str
+                    }
+        else:
+            user = dict(user_row)
+    finally:
+        conn.close()
 
     user_data = UserResponse(
         id=user["id"],
