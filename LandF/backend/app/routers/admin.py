@@ -498,3 +498,28 @@ def decide_handover_approval(evaluation_id: str, payload: dict, x_admin_pin: Opt
         "passcode": passcode_issued,
         "message": f"Verification review decision marked as {decision}."
     }
+
+
+@router.post("/clear-demo-data")
+def clear_demo_data(x_admin_pin: Optional[str] = Header(None)):
+    """
+    Purges demo seed records and demo user details from database.
+    """
+    verify_admin_access(x_admin_pin)
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("DELETE FROM verification_probes WHERE id LIKE '%DEMO%' OR lost_item_id LIKE '%DEMO%' OR found_item_id LIKE '%DEMO%'")
+    cursor.execute("DELETE FROM match_evaluations WHERE id LIKE '%DEMO%' OR lost_item_id LIKE '%DEMO%' OR found_item_id LIKE '%DEMO%'")
+    cursor.execute("DELETE FROM escrow_records WHERE id LIKE '%DEMO%' OR lost_item_id LIKE '%DEMO%' OR found_item_id LIKE '%DEMO%'")
+    cursor.execute("DELETE FROM release_authorizations WHERE id LIKE '%DEMO%' OR lost_item_id LIKE '%DEMO%' OR found_item_id LIKE '%DEMO%'")
+    cursor.execute("DELETE FROM lost_items WHERE id LIKE '%DEMO%' OR user_id LIKE 'USER-DEMO%' OR owner_phone = '+91 98765 43210'")
+    cursor.execute("DELETE FROM found_items WHERE id LIKE '%DEMO%' OR user_id LIKE 'USER-DEMO%' OR finder_phone = '+91 91234 56789'")
+    cursor.execute("DELETE FROM notifications WHERE user_id LIKE 'USER-DEMO%' OR phone IN ('+91 98765 43210', '+91 91234 56789')")
+    cursor.execute("DELETE FROM users WHERE id LIKE 'USER-DEMO%' OR phone IN ('+91 98765 43210', '+91 91234 56789')")
+
+    conn.commit()
+    conn.close()
+
+    return {"success": True, "message": "Demo data and users cleared successfully"}
+

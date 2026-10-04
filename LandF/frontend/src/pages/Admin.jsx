@@ -152,11 +152,26 @@ export default function Admin() {
       const res = await api.verifyHandoverPasscode(handoverCode.trim(), selectedDesk, officerName, pin);
       setHandoverResult(res);
       setHandoverCode('');
-      toast.success(`Handover verified! Escrow disbursed: ₹${res.escrow_amount || 0}. Record archived.`);
       fetchAdminData();
     } catch (err) {
       toast.error(err);
       setHandoverResult(null);
+    }
+  };
+
+  const handleClearDemoData = async () => {
+    if (!window.confirm('Are you sure you want to remove all demo users and mock state records from the database?')) {
+      return;
+    }
+    try {
+      setLoading(true);
+      await api.clearDemoData(pin);
+      toast.success('All demo users and mock states have been removed from database.');
+      fetchAdminData();
+    } catch (err) {
+      toast.error(err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -214,6 +229,9 @@ export default function Admin() {
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
           <button type="button" className="btn btn-outline btn-sm" onClick={() => fetchAdminData()} disabled={loading}>
             <i className="bi bi-arrow-clockwise"></i> Refresh
+          </button>
+          <button type="button" className="btn btn-outline btn-sm" style={{ color: '#d97706', borderColor: '#fde68a' }} onClick={handleClearDemoData} disabled={loading} title="Remove demo mock records and demo users">
+            <i className="bi bi-trash3"></i> Clear Demo Data
           </button>
           <Link to="/archive" className="btn btn-outline btn-sm">
             <i className="bi bi-archive"></i> Archives

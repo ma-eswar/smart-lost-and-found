@@ -330,12 +330,13 @@ export default function TrackStatus() {
               ) : (() => {
                 let pendingChallengeRendered = false;
                 return data.found_items.map((item) => {
-                  const pendingProbe = item.pending_probes && item.pending_probes.find(p => p.probe_status === 'PENDING_RESPONSE');
+                  const verifiedProbes = item.pending_probes ? item.pending_probes.filter(p => p.probe_status === 'VERIFIED') : [];
+                  const isAlreadyVerified = item.status === 'READY_FOR_HANDOVER' || item.status === 'RESOLVED' || verifiedProbes.length > 0;
+                  const pendingProbe = !isAlreadyVerified && item.pending_probes && item.pending_probes.find(p => p.probe_status === 'PENDING_RESPONSE');
                   const showPendingChallenge = !pendingChallengeRendered && pendingProbe;
                   if (showPendingChallenge) {
                     pendingChallengeRendered = true;
                   }
-                  const verifiedProbes = item.pending_probes ? item.pending_probes.filter(p => p.probe_status === 'VERIFIED') : [];
                   
                   return (
                     <div key={item.id} className="form-card listing-card" style={{ marginBottom: '1.25rem' }}>

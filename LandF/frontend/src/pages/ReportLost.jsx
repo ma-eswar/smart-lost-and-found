@@ -26,6 +26,7 @@ export default function ReportLost() {
     product_name: '',
     category: 'Electronics',
     description: '',
+    reference_photos: [],
     reward_amount: 0,
     confirmation_points: [''],
     location: '',
@@ -39,6 +40,30 @@ export default function ReportLost() {
     institutional_id: '',
     residential_address: 'Campus Hostel Block C'
   });
+
+  const handlePhotoUpload = (e) => {
+    const files = Array.from(e.target.files);
+    if (!files.length) return;
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        if (reader.result) {
+          setFormData(prev => ({
+            ...prev,
+            reference_photos: [...prev.reference_photos, reader.result].slice(0, 4)
+          }));
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const removePhoto = (idx) => {
+    setFormData(prev => ({
+      ...prev,
+      reference_photos: prev.reference_photos.filter((_, i) => i !== idx)
+    }));
+  };
 
   // Auto-fill profile details if available in localStorage
   useEffect(() => {
@@ -178,7 +203,7 @@ export default function ReportLost() {
       product_name: formData.product_name.trim(),
       category: formData.category,
       description: formData.description.trim(),
-      reference_photos: [],
+      reference_photos: formData.reference_photos || [],
       secret_points: validPoints,
       reward_amount: parseFloat(formData.reward_amount || 0),
       reward_currency: 'INR',
@@ -352,6 +377,48 @@ export default function ReportLost() {
                 onChange={handleChange} 
               />
               <span className="field-hint">Held securely in escrow until you verify and collect the item at the desk.</span>
+            </div>
+
+            <div className="form-group" style={{ marginTop: '0.75rem' }}>
+              <label>Product Reference Photos (Optional)</label>
+              <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap', marginTop: '0.25rem' }}>
+                <label className="btn btn-outline btn-sm" style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <i className="bi bi-camera-fill"></i> Upload Images (Max 4)
+                  <input type="file" accept="image/*" multiple onChange={handlePhotoUpload} style={{ display: 'none' }} />
+                </label>
+                <span className="field-hint">Upload previous photos, invoice, or packaging to aid visual matching if available.</span>
+              </div>
+              {formData.reference_photos && formData.reference_photos.length > 0 && (
+                <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginTop: '0.75rem' }}>
+                  {formData.reference_photos.map((src, idx) => (
+                    <div key={idx} style={{ position: 'relative', width: '80px', height: '80px', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--border-medium)' }}>
+                      <img src={src} alt="Reference" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <button 
+                        type="button" 
+                        onClick={() => removePhoto(idx)} 
+                        style={{ 
+                          position: 'absolute', 
+                          top: '2px', 
+                          right: '2px', 
+                          background: 'rgba(0,0,0,0.65)', 
+                          color: '#fff', 
+                          border: 'none', 
+                          borderRadius: '50%', 
+                          width: '20px', 
+                          height: '20px', 
+                          fontSize: '0.75rem', 
+                          cursor: 'pointer', 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'center' 
+                        }}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="wizard-actions">
               <div></div>
@@ -661,6 +728,16 @@ export default function ReportLost() {
               </div>
 
               <div className="review-row"><span>Reward:</span><strong>₹{formData.reward_amount || '0'}</strong></div>
+              {formData.reference_photos && formData.reference_photos.length > 0 && (
+                <div className="review-row" style={{ alignItems: 'flex-start' }}>
+                  <span>Reference Photos ({formData.reference_photos.length}):</span>
+                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    {formData.reference_photos.map((src, idx) => (
+                      <img key={idx} src={src} alt="Reference" style={{ width: '48px', height: '48px', objectFit: 'cover', borderRadius: '4px', border: '1px solid var(--border-medium)' }} />
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="review-row"><span>Location:</span><strong>{formData.location}</strong></div>
               <div className="review-row"><span>Date &amp; Time:</span><span>{formData.last_seen_time}</span></div>
               <div className="review-row"><span>Owner:</span><strong>{formData.owner_name} ({formData.owner_phone})</strong></div>
