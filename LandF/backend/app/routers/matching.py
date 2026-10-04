@@ -253,6 +253,7 @@ def submit_finder_probe_response(probe_id: str, payload: SubmitProbeResponseRequ
             passcode_issued = passcode
             auth_id = generate_intake_id("AUTH")
             eval_id = f"EVAL-{probe['lost_item_id'][-6:]}-{probe['found_item_id'][-6:]}"
+            expires_at = (datetime.now() + timedelta(days=7)).isoformat()
             owner_name = lost_row["owner_name"] if (lost_row and lost_row["owner_name"]) else "Verified Owner"
             owner_phone = lost_row["owner_phone"] if (lost_row and lost_row["owner_phone"]) else ""
             admin_pin = ADMIN_PIN or "8899"
